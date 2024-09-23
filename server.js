@@ -21,8 +21,8 @@ function getLocalIPAddress() {
     return '127.0.0.1'; // Return localhost if unable to get IP
 }
 
-// API to retrieve data
-app.post('/getData', async (req, res) => {
+// API to find data
+app.post('/find', async (req, res) => {
     const { mongoURI, dbName, collectionName, query, page = 1, pageSize = 10 } = req.body;
 
     if (!mongoURI || !dbName || !collectionName) {
@@ -57,12 +57,12 @@ app.post('/getData', async (req, res) => {
     }
 });
 
-// Example for retrieving data API
-app.get('/getData', (req, res) => {
+// Example for finding data API
+app.get('/find', (req, res) => {
     const example = {
-        description: "Example request to retrieve data from MongoDB",
+        description: "Example request to find data from MongoDB",
         method: "POST",
-        url: "/getData",
+        url: "/find",
         requestBody: {
             mongoURI: "mongodb://your-mongo-uri",
             dbName: "your-database-name",
