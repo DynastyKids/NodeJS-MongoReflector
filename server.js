@@ -36,7 +36,7 @@ app.get('/', (req, res) => {
 
 // API to find data
 app.post('/find', async (req, res) => {
-    const { mongoURI, dbName, collectionName, query, page, pageSize } = req.body;
+    const { mongoURI, dbName, collectionName, query, options} = req.body;
 
     if (!mongoURI || !dbName || !collectionName) {
         return res.status(400).json({ message: "Please provide mongoURI, dbName, and collectionName." });
@@ -55,29 +55,14 @@ app.post('/find', async (req, res) => {
         const db = client.db(dbName);
         const collection = db.collection(collectionName);
 
-        const filter = query || {};
+        query = (typeof(query) === "object") ? query : {}
+        options = (typeof(options) === "object") ? options : {}
 
-        let data;
-        let totalRecords = await collection.countDocuments(filter);
-
-        // If page or pageSize is not specified, return all data
-        if (page === undefined || pageSize === undefined) {
-            data = await collection.find(filter).toArray(); // Get all records
-        } else {
-            const skip = (page - 1) * pageSize;
-            const limit = pageSize;
-            data = await collection.find(filter).skip(skip).limit(limit).toArray();
-        }
+        let data = await collection.find(query, options);
         await client.close()
 
         res.json({
-            data,
-            meta: {
-                totalRecords,
-                currentPage: page || 1, // Default to 1 if no page provided
-                pageSize: pageSize || totalRecords, // Default to total records if no pageSize
-                totalPages: pageSize ? Math.ceil(totalRecords / pageSize) : 1
-            }
+            results: data,
         });
     } catch (err) {
         res.status(500).json({ 
