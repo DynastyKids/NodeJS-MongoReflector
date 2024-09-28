@@ -1,11 +1,17 @@
 const express = require('express');
 const { MongoClient } = require('mongodb');
 const os = require('os');
+const cors = require('cors')
+const path = require('path');
+
+const swaggerUi = require('swagger-ui-express');
+const swaggerDocument = require('./api/swagger.json');
 
 const app = express();
-const port = 3000;
+var port = 3000;
 
 app.use(express.json());
+app.use(cors());
 
 // Get local IP address
 function getLocalIPAddress() {
@@ -21,6 +27,13 @@ function getLocalIPAddress() {
     return '127.0.0.1'; // Return localhost if unable to get IP
 }
 
+// Home page refer to Swagger UI Interface
+app.use(express.static(path.join(__dirname, 'node_modules/swagger-ui-dist')));
+app.use("/api", swaggerUi.serve, swaggerUi.setup(swaggerDocument))
+app.get('/', (req, res) => {
+    res.redirect('/api');
+  });
+  
 // API to find data
 app.post('/find', async (req, res) => {
     const { mongoURI, dbName, collectionName, query, page = 1, pageSize = 10 } = req.body;
@@ -189,7 +202,20 @@ app.get('/delete', (req, res) => {
 });
 
 // Start server
-app.listen(port, () => {
+const server = app.listen(port, () => {
     const ipAddress = getLocalIPAddress();
     console.log(`API server running at http://${ipAddress}:${port}`);
+});
+
+server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+        console.error(`Port ${port} is in use, trying another port...`);
+        // Automatically try the next available port
+        const newServer = app.listen(0, () => {
+            const newPort = newServer.address().port;
+            console.log(`API server running at http://localhost:${newPort}`);
+        });
+    } else {
+        console.error(`Server error: ${err.message}`);
+    }
 });
