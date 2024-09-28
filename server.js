@@ -32,11 +32,11 @@ app.use(express.static(path.join(__dirname, 'node_modules/swagger-ui-dist')));
 app.use("/api", swaggerUi.serve, swaggerUi.setup(swaggerDocument))
 app.get('/', (req, res) => {
     res.redirect('/api');
-  });
-  
+});
+
 // API to find data
 app.post('/find', async (req, res) => {
-    const { mongoURI, dbName, collectionName, query, page = 1, pageSize = 10 } = req.body;
+    const { mongoURI, dbName, collectionName, query, page, pageSize } = req.body;
 
     if (!mongoURI || !dbName || !collectionName) {
         return res.status(400).json({ message: "Please provide mongoURI, dbName, and collectionName." });
@@ -50,18 +50,26 @@ app.post('/find', async (req, res) => {
         const collection = db.collection(collectionName);
 
         const filter = query || {};
-        const skip = (page - 1) * pageSize;
-        const limit = pageSize;
-        const totalRecords = await collection.countDocuments(filter);
-        const data = await collection.find(filter).skip(skip).limit(limit).toArray();
+
+        let data;
+        let totalRecords = await collection.countDocuments(filter);
+
+        // If page or pageSize is not specified, return all data
+        if (page === undefined || pageSize === undefined) {
+            data = await collection.find(filter).toArray(); // Get all records
+        } else {
+            const skip = (page - 1) * pageSize;
+            const limit = pageSize;
+            data = await collection.find(filter).skip(skip).limit(limit).toArray();
+        }
 
         res.json({
             data,
             meta: {
                 totalRecords,
-                currentPage: page,
-                pageSize,
-                totalPages: Math.ceil(totalRecords / pageSize)
+                currentPage: page || 1, // Default to 1 if no page provided
+                pageSize: pageSize || totalRecords, // Default to total records if no pageSize
+                totalPages: pageSize ? Math.ceil(totalRecords / pageSize) : 1
             }
         });
     } catch (err) {
@@ -70,21 +78,21 @@ app.post('/find', async (req, res) => {
     }
 });
 
-// Example for finding data API
 app.get('/find', (req, res) => {
     const example = {
-        description: "Example request to find data from MongoDB",
+        description: "Example request to find data from MongoDB. If 'page' and 'pageSize' are not provided, all matching data will be returned.",
         method: "POST",
         url: "/find",
         requestBody: {
-            mongoURI: "mongodb://your-mongo-uri",
-            dbName: "your-database-name",
-            collectionName: "your-collection-name",
+            mongoURI: "mongodb://localhost:27017 [string, Mandatory]",
+            dbName: "testDB [string, Mandatory]",
+            collectionName: "testCollection [string, Mandatory]",
             query: {
-                field: "value"
+                field: "value [string, Mandatory]"
             },
-            page: 1,
-            pageSize: 10
+        
+            page: "1 [int, Optional]",
+            pageSize: "10  [int, Optional]"
         }
     };
     res.json(example);
