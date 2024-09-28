@@ -43,7 +43,13 @@ app.post('/find', async (req, res) => {
     }
 
     try {
-        const client = new MongoClient(mongoURI);
+        const client = new MongoClient(mongoURI, {
+            serverApi: {
+                version: ServerApiVersion.v1,
+                strict: true,
+                deprecationErrors: true,
+            }
+        });
         await client.connect();
 
         const db = client.db(dbName);
@@ -62,6 +68,7 @@ app.post('/find', async (req, res) => {
             const limit = pageSize;
             data = await collection.find(filter).skip(skip).limit(limit).toArray();
         }
+        await client.close()
 
         res.json({
             data,
@@ -73,8 +80,10 @@ app.post('/find', async (req, res) => {
             }
         });
     } catch (err) {
-        console.error('Error querying data:', err);
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ 
+            status: 'Server error',
+            message: err
+        });
     }
 });
 
@@ -107,7 +116,13 @@ app.post('/update', async (req, res) => {
     }
 
     try {
-        const client = new MongoClient(mongoURI);
+        const client = new MongoClient(mongoURI,{
+            serverApi: {
+                version: ServerApiVersion.v1,
+                strict: true,
+                deprecationErrors: true,
+            }
+        });
         await client.connect();
 
         const db = client.db(dbName);
@@ -120,7 +135,7 @@ app.post('/update', async (req, res) => {
         } else {
             result = await collection.updateOne(query, update, { upsert });
         }
-
+        await client.close()
         res.json({
             matchedCount: result.matchedCount,
             modifiedCount: result.modifiedCount,
@@ -129,8 +144,10 @@ app.post('/update', async (req, res) => {
             message: 'Update operation successful'
         });
     } catch (err) {
-        console.error('Error updating data:', err);
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ 
+            status: 'Server error',
+            message: err
+        });
     }
 });
 
@@ -166,7 +183,13 @@ app.post('/delete', async (req, res) => {
     }
 
     try {
-        const client = new MongoClient(mongoURI);
+        const client = new MongoClient(mongoURI,{
+            serverApi: {
+                version: ServerApiVersion.v1,
+                strict: true,
+                deprecationErrors: true,
+            }
+        });
         await client.connect();
 
         const db = client.db(dbName);
@@ -179,14 +202,16 @@ app.post('/delete', async (req, res) => {
         } else {
             result = await collection.deleteOne(query);
         }
-
+        await client.close()
         res.json({
             deletedCount: result.deletedCount,
             message: `Delete operation successful, deleted ${result.deletedCount} record(s)`
         });
     } catch (err) {
-        console.error('Error deleting data:', err);
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ 
+            status: 'Server error',
+            message: err
+        });
     }
 });
 
