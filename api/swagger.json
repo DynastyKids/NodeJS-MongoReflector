@@ -27,7 +27,9 @@
   "paths": {
     "/find": {
       "post": {
-        "tags": ["Requests"],
+        "tags": [
+          "Requests"
+        ],
         "summary": "Find data from MongoDB",
         "requestBody": {
           "required": true,
@@ -122,7 +124,9 @@
         }
       },
       "get": {
-        "tags": ["Samples"],
+        "tags": [
+          "Samples"
+        ],
         "summary": "Example request to find data from MongoDB",
         "description": "Returns an example JSON body showing how to use the /find endpoint",
         "responses": {
@@ -153,7 +157,9 @@
     },
     "/update": {
       "post": {
-        "tags": ["Requests"],
+        "tags": [
+          "Requests"
+        ],
         "summary": "Update data in MongoDB",
         "requestBody": {
           "required": true,
@@ -246,7 +252,9 @@
         }
       },
       "get": {
-        "tags": ["Samples"],
+        "tags": [
+          "Samples"
+        ],
         "summary": "Example request to update data in MongoDB",
         "description": "Returns an example JSON body showing how to use the /update endpoint",
         "responses": {
@@ -282,7 +290,9 @@
     },
     "/delete": {
       "post": {
-        "tags": ["Requests"],
+        "tags": [
+          "Requests"
+        ],
         "summary": "Delete data from MongoDB",
         "requestBody": {
           "required": true,
@@ -349,7 +359,9 @@
         }
       },
       "get": {
-        "tags": ["Samples"],
+        "tags": [
+          "Samples"
+        ],
         "summary": "Example request to delete data in MongoDB",
         "description": "Returns an example JSON body showing how to use the /delete endpoint",
         "responses": {

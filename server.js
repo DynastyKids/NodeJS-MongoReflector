@@ -30,43 +30,40 @@ function getLocalIPAddress() {
 // Home page refer to Swagger UI Interface
 app.use(express.static(path.join(__dirname, 'node_modules/swagger-ui-dist')));
 app.use("/api", swaggerUi.serve, swaggerUi.setup(swaggerDocument))
+app.get("/api", swaggerUi.setup(swaggerDocument))
 app.get('/', (req, res) => {
     res.redirect('/api');
 });
 
 // API to find data
 app.post('/find', async (req, res) => {
-    const { mongoURI, dbName, collectionName, query, options} = req.body;
-
+    let { mongoURI, dbName, collectionName, query, options} = req.body;
     if (!mongoURI || !dbName || !collectionName) {
-        return res.status(400).json({ message: "Please provide mongoURI, dbName, and collectionName." });
+        return res.status(400).json({
+            acknowledged: false,
+            message: "Please provide mongoURI, dbName, and collectionName."
+        });
     }
-
     try {
-        const client = new MongoClient(mongoURI, {
+        let client = new MongoClient(mongoURI, {
             serverApi: {
                 version: ServerApiVersion.v1,
-                strict: true,
-                deprecationErrors: true,
+                useNewUrlParser: true,
+                useUnifiedTopology: true,
             }
         });
         await client.connect();
+        const collection = client.db(dbName).collection(collectionName);
 
-        const db = client.db(dbName);
-        const collection = db.collection(collectionName);
+        query = (query && typeof query === "object") ? query : {}
+        options = (options && typeof options === "object") ? options : {}
 
-        query = (typeof(query) === "object") ? query : {}
-        options = (typeof(options) === "object") ? options : {}
-
-        let data = await collection.find(query, options);
+        let data = await collection.find(query, options).toArray();
         await client.close()
-
-        res.json({
-            results: data,
-        });
+        res.json({acknowledged: true,"results": data});
     } catch (err) {
-        res.status(500).json({ 
-            status: 'Server error',
+        res.status(500).json({
+            acknowledged: false,
             message: err
         });
     }
@@ -87,6 +84,108 @@ app.get('/find', (req, res) => {
         
             page: "1 [int, Optional]",
             pageSize: "10  [int, Optional]"
+        }
+    };
+    res.json(example);
+});
+
+app.post('/insertTimeSeries', async (req, res) => {
+    let { mongoURI, dbName, collectionName, timeField, documents, options } = req.body;
+    if (!mongoURI || !dbName || !collectionName || !documents) {
+        return res.status(400).json({
+            acknowledged: false,
+            message: "Please provide mongoURI, dbName, collectionName, timeField, documents and options(not mandatory)."
+        });
+    }
+    console.log(documents)
+
+    try {
+        const client = new MongoClient(mongoURI, {
+            serverApi: {
+                version: ServerApiVersion.v1,
+                useNewUrlParser: true,
+                useUnifiedTopology: true,
+            }
+        });
+
+        await client.connect();
+        const collection = client.db(dbName).collection(collectionName);
+
+        documents[`${timeField.name}`] = new Date(timeField.val)
+        console.log(documents)
+        let result = await collection.insertOne(documents, options);
+
+        await client.close();
+        res.json({
+            acknowledged: true,
+            result: result
+        });
+    } catch (err) {
+        console.error('Error inserting data:', err);
+        res.status(500).json({
+            acknowledged: false,
+            status: 'Server error',
+            message: err
+        });
+    }
+});
+
+app.post('/insert', async (req, res) => {
+    let { mongoURI, dbName, collectionName, documents, options } = req.body;
+    if (!mongoURI || !dbName || !collectionName || !documents) {
+        return res.status(400).json({
+            acknowledged: false,
+            message: "Please provide mongoURI, dbName, collectionName, documents and options(not mandatory)."
+        });
+    }
+
+    try {
+        const client = new MongoClient(mongoURI, {
+            serverApi: {
+                version: ServerApiVersion.v1,
+                useNewUrlParser: true,
+                useUnifiedTopology: true,
+            }
+        });
+
+        await client.connect();
+        const collection = client.db(dbName).collection(collectionName);
+
+        let result;
+        if (Array.isArray(documents)) {
+            result = await collection.insertMany(documents, options);
+        } else {
+            result = await collection.insertOne(documents, options);
+        }
+
+        await client.close();
+        res.json({
+            acknowledged: true,
+            result: result
+        });
+    } catch (err) {
+        console.error('Error inserting data:', err);
+        res.status(500).json({
+            acknowledged: false,
+            status: 'Server error',
+            message: err
+        });
+    }
+});
+
+app.get('/insert', (req, res) => {
+    const example = {
+        description: "Example request to insert multiple data from MongoDB.",
+        method: "POST",
+        url: "/find",
+        requestBody: {
+            mongoURI: "mongodb://localhost:27017 [string, Mandatory]",
+            dbName: "testDB [string, Mandatory]",
+            collectionName: "testCollection [string, Mandatory]",
+            documents: ["values"],
+            options:{
+                field: "values"
+            }
         }
     };
     res.json(example);
