@@ -35,37 +35,68 @@ app.get('/', (req, res) => {
     res.redirect('/api');
 });
 
-// API to find data
-app.post('/find', async (req, res) => {
-    let { mongoURI, dbName, collectionName, query, options} = req.body;
+app.post('/ping', async (req, res) => {
+    let { mongoURI, dbName, collectionName} = req.body;
     if (!mongoURI || !dbName || !collectionName) {
         return res.status(400).json({
             acknowledged: false,
             message: "Please provide mongoURI, dbName, and collectionName."
         });
     }
+    let client = new MongoClient(mongoURI, {
+        serverApi: {
+            version: ServerApiVersion.v1,
+            useNewUrlParser: true,
+            useUnifiedTopology: true,
+        }
+    })
     try {
-        let client = new MongoClient(mongoURI, {
-            serverApi: {
-                version: ServerApiVersion.v1,
-                useNewUrlParser: true,
-                useUnifiedTopology: true,
-            }
+        await client.connect()
+        const collection = client.db(dbName).collection(collectionName)
+        await client.db(dbName).command({ping: 1})
+        res.json({acknowledged: true, message: "ping successful"});
+    } catch (err) {
+        res.status(500).json({
+            acknowledged: false,
+            message: err
         });
-        await client.connect();
-        const collection = client.db(dbName).collection(collectionName);
+    } finally{
+        await client.close()
+    }
+});
+
+// API to find data
+app.post('/find', async (req, res) => {
+    let { mongoURI, dbName, collectionName, query, options} = req.body;
+    if (!mongoURI || !dbName || !collectionName) {
+        return res.status(400).json({
+            acknowledged: false,
+            message: "Please provide mongoURI, dbName, and collectionName." 
+        });
+    }
+    let client = new MongoClient(mongoURI, {
+        serverApi: {
+            version: ServerApiVersion.v1,
+            useNewUrlParser: true,
+            useUnifiedTopology: true,
+        }
+    })
+    try {
+        await client.connect()
+        const collection = client.db(dbName).collection(collectionName)
 
         query = (query && typeof query === "object") ? query : {}
         options = (options && typeof options === "object") ? options : {}
 
         let data = await collection.find(query, options).toArray();
-        await client.close()
         res.json({acknowledged: true,"results": data});
     } catch (err) {
         res.status(500).json({
             acknowledged: false,
             message: err
         });
+    } finally {
+        await client.close()
     }
 });
 
@@ -97,25 +128,22 @@ app.post('/insertTimeSeries', async (req, res) => {
             message: "Please provide mongoURI, dbName, collectionName, timeField, documents and options(not mandatory)."
         });
     }
-    console.log(documents)
 
+    const client = new MongoClient(mongoURI, {
+        serverApi: {
+            version: ServerApiVersion.v1,
+            useNewUrlParser: true,
+            useUnifiedTopology: true,
+        }
+    })
     try {
-        const client = new MongoClient(mongoURI, {
-            serverApi: {
-                version: ServerApiVersion.v1,
-                useNewUrlParser: true,
-                useUnifiedTopology: true,
-            }
-        });
-
-        await client.connect();
-        const collection = client.db(dbName).collection(collectionName);
+        await client.connect()
+        const collection = client.db(dbName).collection(collectionName)
 
         documents[`${timeField.name}`] = new Date(timeField.val)
         console.log(documents)
         let result = await collection.insertOne(documents, options);
 
-        await client.close();
         res.json({
             acknowledged: true,
             result: result
@@ -127,6 +155,8 @@ app.post('/insertTimeSeries', async (req, res) => {
             status: 'Server error',
             message: err
         });
+    } finally {
+        await client.close()
     }
 });
 
@@ -139,26 +169,25 @@ app.post('/insert', async (req, res) => {
         });
     }
 
+    const client = new MongoClient(mongoURI, {
+        serverApi: {
+            version: ServerApiVersion.v1,
+            useNewUrlParser: true,
+            useUnifiedTopology: true,
+        }
+    });
+
     try {
-        const client = new MongoClient(mongoURI, {
-            serverApi: {
-                version: ServerApiVersion.v1,
-                useNewUrlParser: true,
-                useUnifiedTopology: true,
-            }
-        });
+        await client.connect()
+        const collection = client.db(dbName).collection(collectionName)
+        let result
 
-        await client.connect();
-        const collection = client.db(dbName).collection(collectionName);
-
-        let result;
         if (Array.isArray(documents)) {
             result = await collection.insertMany(documents, options);
         } else {
             result = await collection.insertOne(documents, options);
         }
 
-        await client.close();
         res.json({
             acknowledged: true,
             result: result
@@ -170,8 +199,11 @@ app.post('/insert', async (req, res) => {
             status: 'Server error',
             message: err
         });
+    } finally {
+        await client.close()
     }
 });
+
 
 app.get('/insert', (req, res) => {
     const example = {
@@ -193,34 +225,33 @@ app.get('/insert', (req, res) => {
 
 // API to update data
 app.post('/update', async (req, res) => {
-    const { mongoURI, dbName, collectionName, query, update, upsert = false, multi = false } = req.body;
+    const { mongoURI, dbName, collectionName, query, update, options } = req.body;
 
     if (!mongoURI || !dbName || !collectionName || !query || !update) {
-        return res.status(400).json({ message: "Please provide mongoURI, dbName, collectionName, query, and update." });
+        return res.status(400).json({
+            acknowledged: false,
+            message: "Please provide mongoURI, dbName, collectionName, query, and update."
+        });
     }
 
-    try {
-        const client = new MongoClient(mongoURI,{
-            serverApi: {
-                version: ServerApiVersion.v1,
-                strict: true,
-                deprecationErrors: true,
-            }
-        });
-        await client.connect();
-
-        const db = client.db(dbName);
-        const collection = db.collection(collectionName);
-
-        let result;
-
-        if (multi) {
-            result = await collection.updateMany(query, update, { upsert });
-        } else {
-            result = await collection.updateOne(query, update, { upsert });
+    const client = new MongoClient(mongoURI,{
+        serverApi: {
+            version: ServerApiVersion.v1,
+            useNewUrlParser: true,
+            useUnifiedTopology: true,
         }
-        await client.close()
+    });
+
+    try {
+        await client.connect()
+        const db = client.db(dbName)
+        const collection = db.collection(collectionName)
+        console.log(query, update)
+
+        let result = await collection.updateMany(query, update, (options === {} ? {"upsert": true} : options));
+
         res.json({
+            acknowledged: true,
             matchedCount: result.matchedCount,
             modifiedCount: result.modifiedCount,
             upsertedCount: result.upsertedCount || 0,
@@ -228,10 +259,13 @@ app.post('/update', async (req, res) => {
             message: 'Update operation successful'
         });
     } catch (err) {
-        res.status(500).json({ 
-            status: 'Server error',
+        console.log(err)
+        res.status(500).json({
+            acknowledged: false,
             message: err
         });
+    } finally {
+        await client.close()
     }
 });
 
@@ -266,36 +300,37 @@ app.post('/delete', async (req, res) => {
         return res.status(400).json({ message: "Please provide mongoURI, dbName, collectionName, and query." });
     }
 
+    const client = new MongoClient(mongoURI,{
+        serverApi: {
+            version: ServerApiVersion.v1,
+            useNewUrlParser: true,
+            useUnifiedTopology: true,
+        }
+    });
+
     try {
-        const client = new MongoClient(mongoURI,{
-            serverApi: {
-                version: ServerApiVersion.v1,
-                strict: true,
-                deprecationErrors: true,
-            }
-        });
-        await client.connect();
-
-        const db = client.db(dbName);
-        const collection = db.collection(collectionName);
-
-        let result;
+        await client.connect()
+        const db = client.db(dbName)
+        const collection = db.collection(collectionName)
+        let result
 
         if (multi) {
             result = await collection.deleteMany(query);
         } else {
             result = await collection.deleteOne(query);
         }
-        await client.close()
+
         res.json({
             deletedCount: result.deletedCount,
             message: `Delete operation successful, deleted ${result.deletedCount} record(s)`
         });
     } catch (err) {
-        res.status(500).json({ 
+        res.status(500).json({
             status: 'Server error',
             message: err
         });
+    } finally {
+        await client.close()
     }
 });
 
