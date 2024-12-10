@@ -88,6 +88,18 @@ app.post('/find', async (req, res) => {
         query = (query && typeof query === "object") ? query : {}
         options = (options && typeof options === "object") ? options : {}
 
+        for (const key in query) {
+            if (query[key]?.$regex && query[key]?.$options) { // 将符合格式的 $regex 和 $options 转换为正则表达式对象
+                query[key] = new RegExp(query[key].$regex, query[key].$options);
+            } else if (typeof query[key] === "string" && query[key].startsWith("RegExp(")) { // 处理直接传入的字符串格式，例如 "RegExp(pattern,flags)"
+                const regexMatch = query[key].match(/^RegExp\((.*)\)$/);
+                if (regexMatch) {
+                    const [pattern, flags] = regexMatch[1].split(',');
+                    query[key] = new RegExp(pattern.trim(), flags?.trim());
+                }
+            }
+        }
+
         let data = await collection.find(query, options).toArray();
         res.json({acknowledged: true,"results": data});
     } catch (err) {

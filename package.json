@@ -14,7 +14,9 @@
     "cors": "^2.8.5",
     "express": "^4.21.0",
     "mongodb": "^6.9.0",
-    "swagger-jsdoc": "^6.2.8",
-    "swagger-ui-express": "^4.6.2"
+    "swagger-ui-express": "^5.0.0"
+  },
+  "devDependencies": {
+    "wrangler": "^3.87.0"
   }
 }
