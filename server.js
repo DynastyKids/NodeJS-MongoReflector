@@ -12,6 +12,13 @@ var port = 3000;
 
 app.use(express.json());
 app.use(cors());
+app.use((req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+    next();
+});
+
 
 // Get local IP address
 function getLocalIPAddress() {
@@ -133,11 +140,69 @@ app.get('/find', (req, res) => {
 });
 
 app.post('/paginatefind', async (req, res) => {
-    let { mongoURI, dbName, collectionName, query, page, limit,options} = req.body;
+    let { mongoURI, dbName, collectionName, query, options, draw, start, length, order, search, columns } = req.body;
+
     if (!mongoURI || !dbName || !collectionName) {
+        return res.status(400).json({ acknowledged: false, message: "Missing parameters." });
+    }
+
+    let client = new MongoClient(mongoURI, {
+        serverApi: { version: ServerApiVersion.v1 },
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+    });
+
+    try {
+        await client.connect();
+        const collection = client.db(dbName).collection(collectionName);
+        const page = Math.floor(start / length) + 1;
+        const limit = parseInt(length, 10) || 10;
+        const skip = (page - 1) * limit;
+
+        if (typeof query === "string") query = JSON.parse(query);
+        query = (query && typeof query === "object") ? query : {};
+
+        if (search && search.value) {
+            let searchValue = search.value.trim();
+            query["$or"] = columns.map(col => ({ [col.data]: { $regex: searchValue, $options: "i" } }));
+        }
+
+        options = options || { sort: { "order_date": -1 } };
+        let sort = options.sort;
+        if (order && order.length > 0) {
+            let columnIdx = order[0].column;
+            let columnDir = order[0].dir === "asc" ? 1 : -1;
+            let columnName = columns[columnIdx].data;
+            sort = { [columnName]: columnDir };
+        }
+
+        let total = await collection.countDocuments({});
+        let filteredTotal = await collection.countDocuments(query);
+
+        let cursor = collection.find(query).sort(sort).skip(skip).limit(limit);
+        const data = await cursor.toArray();
+
+        res.json({
+            draw: draw || 1,
+            recordsTotal: total,
+            recordsFiltered: filteredTotal,
+            data: data
+        });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ acknowledged: false, message: err.message });
+    } finally {
+        await client.close();
+    }
+});
+
+app.post('/distinct_field', async (req, res) => {
+    let { mongoURI, dbName, collectionName, field_name} = req.body;
+    if (!mongoURI || !dbName || !collectionName || !field_name ) {
         return res.status(400).json({
             acknowledged: false,
-            message: "Please provide mongoURI, dbName, and collectionName." 
+            message: "Please provide mongoURI, dbName, collectionName and field_name." 
         });
     }
     let client = new MongoClient(mongoURI, {
@@ -147,48 +212,29 @@ app.post('/paginatefind', async (req, res) => {
             useUnifiedTopology: true,
         }
     })
-    page = parseInt(page, 10) || 1;    
-    limit = parseInt(limit, 10) || 10; 
-    const skip = (page - 1) * limit;// 计算 skip 的条目数
 
     try {
-        await client.connect()
-        const collection = client.db(dbName).collection(collectionName)
-
-        query = (query && typeof query === "object") ? query : {}
-        options = (options && typeof options === "object") ? options : {}
-
-        for (const key in query) {
-            if (query[key]?.$regex && query[key]?.$options) { // 将符合格式的 $regex 和 $options 转换为正则表达式对象
-                query[key] = new RegExp(query[key].$regex, query[key].$options);
-            } else if (typeof query[key] === "string" && query[key].startsWith("RegExp(")) { // 处理直接传入的字符串格式，例如 "RegExp(pattern,flags)"
-                const regexMatch = query[key].match(/^RegExp\((.*)\)$/);
-                if (regexMatch) {
-                    const [pattern, flags] = regexMatch[1].split(',');
-                    query[key] = new RegExp(pattern.trim(), flags?.trim());
-                }
-            }
-        }
-        // 获取符合 query 条件的文档总数 (用于分页信息)
-        let total = await collection.countDocuments(query);
-
-        // 分页查询，应用 skip 和 limit
-        // 如果原先 options 里带有 sort 等信息，可继续沿用
-        const data = await collection.find(query, options).skip(skip).limit(limit).toArray();
-        const totalPages = Math.ceil(total / limit);
+        await client.connect();
+        const collection = client.db(dbName).collection(collectionName);
+        
+        let result = await collection.aggregate([
+            { $group: { _id: `$${field_name}`, count: { $sum: 1 } } },
+            { $sort: { count: -1 } } // 按出现次数降序排序
+        ]).toArray();
 
         res.json({
             acknowledged: true,
-            results: data,
-            pagination: {page,limit,total,totalPages}
+            data: result
         });
-    } catch (err) {
+    } catch (error) {
+        console.error("Error fetching distinct values:", error);
         res.status(500).json({
             acknowledged: false,
-            message: err
+            data:[],
+            error: error.message
         });
     } finally {
-        await client.close()
+        await client.close();
     }
 });
 
