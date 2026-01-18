@@ -4,8 +4,10 @@ const os = require('os');
 const cors = require('cors')
 const path = require('path');
 
+const fs = require('fs');
 const swaggerUi = require('swagger-ui-express');
-const swaggerDocument = require('./api/swagger.json');
+const swaggerDocument = JSON.parse(fs.readFileSync('./api/swagger.json', 'utf8'));
+const swaggerDocumentZh = JSON.parse(fs.readFileSync('./api/swagger.zh_cn.json', 'utf8'));
 
 const app = express();
 var port = process.env.PORT || 3000;
@@ -80,12 +82,43 @@ function getLocalIPAddress() {
 }
 
 // Home page refer to Swagger UI Interface
-app.use(express.static(path.join(__dirname, 'node_modules/swagger-ui-dist')));
-app.use("/api", swaggerUi.serve, swaggerUi.setup(swaggerDocument))
-app.get("/api", swaggerUi.setup(swaggerDocument))
 app.get('/', (req, res) => {
-    res.redirect('/api');
+    res.send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>API文档 / API Documentation</title>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <style>
+                body { font-family: sans-serif; padding: 40px; background: #f5f5f5; }
+                .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+                h1 { color: #333; text-align: center; margin-bottom: 30px; }
+                .selector { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; }
+                .lang-btn { padding: 15px 30px; font-size: 16px; border: 2px solid #4CAF50; background: white; color: #4CAF50; border-radius: 5px; cursor: pointer; text-decoration: none; transition: all 0.3s; font-weight: bold; }
+                .lang-btn:hover { background: #4CAF50; color: white; }
+                .info { margin-top: 30px; padding: 15px; background: #f0f0f0; border-left: 4px solid #4CAF50; border-radius: 4px; }
+                .info p { margin: 8px 0; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>Mongo Reflector</h1>
+                <h1>🌐 API Documentation Language / 选择语言 : </h1>
+                <div class="selector">
+                    <a href="/api/zh_cn" class="lang-btn">中文 🇨🇳</a>
+                    <a href="/api/en" class="lang-btn">English 🇬🇧</a>
+                </div>
+            </div>
+        </body>
+        </html>
+    `);
 });
+app.use("/api/en", swaggerUi.serve);
+app.get("/api/en", swaggerUi.setup(swaggerDocument));
+app.use("/api/zh_cn", swaggerUi.serve);
+app.get("/api/zh_cn", swaggerUi.setup(swaggerDocumentZh));
+
 
 // --- 4. 错误处理与启动 ---
 // 全局异常捕获中间件 (改进点3)
@@ -112,26 +145,6 @@ app.post('/ping', asyncHandler(async (req, res) => {
     
     res.json({ acknowledged: true, message: "Cloud connection successful" });
 }));
-
-app.get('/find', (req, res) => {
-    const example = {
-        description: "Example request to find data from MongoDB. If 'page' and 'pageSize' are not provided, all matching data will be returned.",
-        method: "POST",
-        url: "/find",
-        requestBody: {
-            mongoURI: "mongodb://localhost:27017 [string, Mandatory]",
-            dbName: "testDB [string, Mandatory]",
-            collectionName: "testCollection [string, Mandatory]",
-            query: {
-                field: "value [string, Mandatory]"
-            },
-
-            page: "1 [int, Optional]",
-            pageSize: "10  [int, Optional]"
-        }
-    };
-    res.json(example);
-});
 
 // Find 接口 - 核心查询逻辑
 app.post('/find', asyncHandler(async (req, res) => {
@@ -402,23 +415,143 @@ app.post('/delete', async (req, res) => {
     }
 });
 
-// Example for delete data API
-app.get('/delete', (req, res) => {
-    const example = {
-        description: "Example request to delete data from MongoDB",
-        method: "POST",
-        url: "/delete",
-        requestBody: {
-            mongoURI: "mongodb://your-mongo-uri",
-            dbName: "your-database-name",
-            collectionName: "your-collection-name",
-            query: {
-                field: "value"
-            },
-            multi: false
+// API to delete data from TimeSeries collection
+app.post('/delete_timeseries', async (req, res) => {
+    const { mongoURI, dbName, collectionName, query, metaField, timeField, multi = false } = req.body;
+
+    if (!mongoURI || !dbName || !collectionName || !query) {
+        return res.status(400).json({
+            acknowledged: false,
+            message: "Please provide mongoURI, dbName, collectionName, and query."
+        });
+    }
+
+    const client = new MongoClient(mongoURI, {
+        serverApi: {
+            version: ServerApiVersion.v1,
+            useNewUrlParser: true,
+            useUnifiedTopology: true,
         }
-    };
-    res.json(example);
+    });
+
+    try {
+        await client.connect();
+        const db = client.db(dbName);
+        const collection = db.collection(collectionName);
+        
+        // Build filter with time range if timeField is provided
+        let filter = { ...query };
+        if (timeField && (timeField.start || timeField.end)) {
+            filter.timestamp = {};
+            if (timeField.start) {
+                filter.timestamp.$gte = new Date(timeField.start);
+            }
+            if (timeField.end) {
+                filter.timestamp.$lte = new Date(timeField.end);
+            }
+        }
+
+        console.log('TimeSeries delete filter:', filter);
+        let result;
+
+        if (multi) {
+            result = await collection.deleteMany(filter);
+        } else {
+            result = await collection.deleteOne(filter);
+        }
+
+        res.json({
+            acknowledged: true,
+            deletedCount: result.deletedCount,
+            message: `Delete operation successful, deleted ${result.deletedCount} record(s) from TimeSeries collection`
+        });
+    } catch (err) {
+        console.error('Error deleting TimeSeries data:', err);
+        res.status(500).json({
+            acknowledged: false,
+            status: 'Server error',
+            message: err.message || err
+        });
+    } finally {
+        await client.close();
+    }
+});
+
+// API to delete data from TimeSeries collection (Legacy - MongoDB 6 compatible)
+// Deletes documents one by one using deleteOne for better compatibility
+app.post('/delete_timeseries_legacy', async (req, res) => {
+    const { mongoURI, dbName, collectionName, query, timeField } = req.body;
+
+    if (!mongoURI || !dbName || !collectionName || !query) {
+        return res.status(400).json({
+            acknowledged: false,
+            message: "Please provide mongoURI, dbName, collectionName, and query."
+        });
+    }
+
+    const client = new MongoClient(mongoURI, {
+        serverApi: {
+            version: ServerApiVersion.v1,
+            useNewUrlParser: true,
+            useUnifiedTopology: true,
+        }
+    });
+
+    try {
+        await client.connect();
+        const db = client.db(dbName);
+        const collection = db.collection(collectionName);
+        
+        // Build filter with time range if timeField is provided
+        let filter = { ...query };
+        if (timeField && (timeField.start || timeField.end)) {
+            filter.timestamp = {};
+            if (timeField.start) {
+                filter.timestamp.$gte = new Date(timeField.start);
+            }
+            if (timeField.end) {
+                filter.timestamp.$lte = new Date(timeField.end);
+            }
+        }
+
+        console.log('TimeSeries legacy delete filter:', filter);
+        
+        // Find all matching documents first
+        const documentsToDelete = await collection.find(filter).toArray();
+        const totalCount = documentsToDelete.length;
+        let deletedCount = 0;
+        let failedCount = 0;
+
+        // Delete one by one for better compatibility with older MongoDB versions
+        for (const doc of documentsToDelete) {
+            try {
+                const result = await collection.deleteOne({ _id: doc._id });
+                if (result.deletedCount > 0) {
+                    deletedCount++;
+                }
+            } catch (deleteErr) {
+                console.error(`Failed to delete document ${doc._id}:`, deleteErr);
+                failedCount++;
+            }
+        }
+
+        res.json({
+            acknowledged: true,
+            deletedCount: deletedCount,
+            failedCount: failedCount,
+            totalMatched: totalCount,
+            message: `Legacy delete operation successful, deleted ${deletedCount}/${totalCount} record(s) from TimeSeries collection${failedCount > 0 ? `, ${failedCount} failed` : ''}`
+        });
+    } catch (err) {
+        console.error('Error deleting TimeSeries data (legacy):', err);
+        res.status(500).json({
+            acknowledged: false,
+            status: 'Server error',
+            message: err.message || err
+        });
+    } finally {
+        await client.close();
+    }
 });
 
 // Start server

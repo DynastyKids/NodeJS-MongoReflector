@@ -1,16 +1,12 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "description": "This is a MongoDB Backend reflector server. Supporting front-end only application to deploy their own backend via PAAS platform to transmit their database data.",
+    "description": "这是一个MongoDB后端反射器服务器。支持仅前端应用程序通过PAAS平台部署自己的后端来传输他们的数据库数据。",
     "version": "1.0.1",
-    "title": "Mongo Reflector",
+    "title": "MongoDB 中间件",
     "license": {
       "name": "Apache 2.0",
       "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
-    },
-    "x-languages": {
-      "英文版 / English": "/api/en",
-      "中文版 / Chinese": "/api/zh_cn"
     }
   },
   "servers": [
@@ -20,34 +16,34 @@
   ],
   "tags": [
     {
-      "name": "Health Check",
-      "description": "Server connectivity verification"
+      "name": "健康检查",
+      "description": "服务器连通性验证"
     },
     {
-      "name": "Read Operations",
-      "description": "Query and retrieve data from MongoDB"
+      "name": "读取操作",
+      "description": "从MongoDB查询和检索数据"
     },
     {
-      "name": "Write Operations",
-      "description": "Insert and update data in MongoDB"
+      "name": "写入操作",
+      "description": "向MongoDB插入和更新数据"
     },
     {
-      "name": "Delete Operations",
-      "description": "Delete data from MongoDB collections"
+      "name": "删除操作",
+      "description": "删除MongoDB集合中的数据"
     },
     {
-      "name": "TimeSeries Operations",
-      "description": "Special operations for TimeSeries collections"
+      "name": "时间序列操作",
+      "description": "时间序列集合的特殊操作"
     }
   ],
   "paths": {
     "/ping": {
       "post": {
         "tags": [
-          "Health Check"
+          "健康检查"
         ],
-        "summary": "Check MongoDB connectivity",
-        "description": "Verifies connection to MongoDB server",
+        "summary": "检查MongoDB连通性",
+        "description": "验证与MongoDB服务器的连接",
         "requestBody": {
           "required": true,
           "content": {
@@ -58,17 +54,17 @@
                 "properties": {
                   "mongoURI": {
                     "type": "string",
-                    "description": "MongoDB connection string",
+                    "description": "MongoDB连接字符串",
                     "example": "mongodb+srv://user:password@cluster.mongodb.net"
                   },
                   "dbName": {
                     "type": "string",
-                    "description": "Database name",
+                    "description": "数据库名称",
                     "example": "testDB"
                   },
                   "collectionName": {
                     "type": "string",
-                    "description": "Collection name",
+                    "description": "集合名称",
                     "example": "testCollection"
                   }
                 }
@@ -78,7 +74,7 @@
         },
         "responses": {
           "200": {
-            "description": "Connection successful",
+            "description": "连接成功",
             "content": {
               "application/json": {
                 "schema": {
@@ -90,7 +86,7 @@
                     },
                     "message": {
                       "type": "string",
-                      "example": "Cloud connection successful"
+                      "example": "云连接成功"
                     }
                   }
                 }
@@ -98,10 +94,10 @@
             }
           },
           "400": {
-            "description": "Missing required parameters"
+            "description": "缺少必需参数"
           },
           "500": {
-            "description": "Connection failed"
+            "description": "连接失败"
           }
         }
       }
@@ -109,10 +105,10 @@
     "/find": {
       "post": {
         "tags": [
-          "Read Operations"
+          "读取操作"
         ],
-        "summary": "Find documents in MongoDB",
-        "description": "Query documents with optional filtering",
+        "summary": "从MongoDB中查找文档",
+        "description": "使用可选过滤器查询文档",
         "requestBody": {
           "required": true,
           "content": {
@@ -123,29 +119,29 @@
                 "properties": {
                   "mongoURI": {
                     "type": "string",
-                    "description": "MongoDB connection string",
+                    "description": "MongoDB连接字符串",
                     "example": "mongodb+srv://user:password@cluster.mongodb.net"
                   },
                   "dbName": {
                     "type": "string",
-                    "description": "Database name",
+                    "description": "数据库名称",
                     "example": "testDB"
                   },
                   "collectionName": {
                     "type": "string",
-                    "description": "Collection name",
+                    "description": "集合名称",
                     "example": "testCollection"
                   },
                   "query": {
                     "type": "object",
-                    "description": "MongoDB query filter",
+                    "description": "MongoDB查询过滤器",
                     "example": {
                       "status": "active"
                     }
                   },
                   "options": {
                     "type": "object",
-                    "description": "Find options (projection, sort, etc)",
+                    "description": "查找选项（投影、排序等）",
                     "example": {
                       "projection": { "name": 1, "email": 1 }
                     }
@@ -157,7 +153,7 @@
         },
         "responses": {
           "200": {
-            "description": "Success",
+            "description": "成功",
             "content": {
               "application/json": {
                 "schema": {
@@ -179,10 +175,10 @@
             }
           },
           "400": {
-            "description": "Bad request"
+            "description": "错误的请求"
           },
           "500": {
-            "description": "Server error"
+            "description": "服务器错误"
           }
         }
       }
@@ -190,10 +186,10 @@
     "/paginatefind": {
       "post": {
         "tags": [
-          "Read Operations"
+          "读取操作"
         ],
-        "summary": "Find documents with pagination (DataTables protocol)",
-        "description": "Query documents with support for pagination, sorting, and global search",
+        "summary": "分页查找文档（DataTables协议）",
+        "description": "支持分页、排序和全局搜索的查询文档",
         "requestBody": {
           "required": true,
           "content": {
@@ -216,22 +212,22 @@
                   },
                   "query": {
                     "type": "object",
-                    "description": "Base filter",
+                    "description": "基础过滤器",
                     "example": {}
                   },
                   "start": {
                     "type": "integer",
-                    "description": "Skip documents count",
+                    "description": "跳过文档数量",
                     "example": 0
                   },
                   "length": {
                     "type": "integer",
-                    "description": "Limit documents count",
+                    "description": "限制文档数量",
                     "example": 10
                   },
                   "columns": {
                     "type": "array",
-                    "description": "Column definitions",
+                    "description": "列定义",
                     "example": [
                       {
                         "data": "name"
@@ -243,7 +239,7 @@
                   },
                   "order": {
                     "type": "array",
-                    "description": "Sort order",
+                    "description": "排序顺序",
                     "example": [
                       {
                         "column": 0,
@@ -253,14 +249,14 @@
                   },
                   "search": {
                     "type": "object",
-                    "description": "Global search",
+                    "description": "全局搜索",
                     "example": {
                       "value": ""
                     }
                   },
                   "draw": {
                     "type": "integer",
-                    "description": "Draw counter from DataTables",
+                    "description": "DataTables的绘制计数器",
                     "example": 1
                   }
                 }
@@ -270,7 +266,7 @@
         },
         "responses": {
           "200": {
-            "description": "Success",
+            "description": "成功",
             "content": {
               "application/json": {
                 "schema": {
@@ -281,11 +277,11 @@
                     },
                     "recordsTotal": {
                       "type": "integer",
-                      "description": "Total records in collection"
+                      "description": "集合中的总记录数"
                     },
                     "recordsFiltered": {
                       "type": "integer",
-                      "description": "Records matching filter"
+                      "description": "匹配过滤器的记录数"
                     },
                     "data": {
                       "type": "array",
@@ -299,7 +295,7 @@
             }
           },
           "500": {
-            "description": "Server error"
+            "description": "服务器错误"
           }
         }
       }
@@ -307,10 +303,10 @@
     "/distinct_field": {
       "post": {
         "tags": [
-          "Read Operations"
+          "读取操作"
         ],
-        "summary": "Get distinct values for a field",
-        "description": "Returns array of unique values for specified field",
+        "summary": "获取字段的不同值",
+        "description": "返回指定字段的唯一值数组",
         "requestBody": {
           "required": true,
           "content": {
@@ -333,7 +329,7 @@
                   },
                   "field_name": {
                     "type": "string",
-                    "description": "Field name to get distinct values from",
+                    "description": "要获取不同值的字段名称",
                     "example": "status"
                   }
                 }
@@ -343,7 +339,7 @@
         },
         "responses": {
           "200": {
-            "description": "Success",
+            "description": "成功",
             "content": {
               "application/json": {
                 "schema": {
@@ -366,7 +362,7 @@
             }
           },
           "500": {
-            "description": "Server error"
+            "description": "服务器错误"
           }
         }
       }
@@ -374,10 +370,10 @@
     "/insert": {
       "post": {
         "tags": [
-          "Write Operations"
+          "写入操作"
         ],
-        "summary": "Insert documents into MongoDB",
-        "description": "Insert single or multiple documents. Handles both single object and array",
+        "summary": "向MongoDB插入文档",
+        "description": "插入单个或多个文档。同时处理单个对象和数组",
         "requestBody": {
           "required": true,
           "content": {
@@ -402,7 +398,7 @@
                     "oneOf": [
                       {
                         "type": "object",
-                        "description": "Single document",
+                        "description": "单个文档",
                         "example": {
                           "name": "John",
                           "email": "john@example.com"
@@ -410,7 +406,7 @@
                       },
                       {
                         "type": "array",
-                        "description": "Multiple documents",
+                        "description": "多个文档",
                         "items": {
                           "type": "object"
                         }
@@ -419,7 +415,7 @@
                   },
                   "options": {
                     "type": "object",
-                    "description": "Insert options",
+                    "description": "插入选项",
                     "example": {}
                   }
                 }
@@ -429,7 +425,7 @@
         },
         "responses": {
           "200": {
-            "description": "Insert successful",
+            "description": "插入成功",
             "content": {
               "application/json": {
                 "schema": {
@@ -456,21 +452,21 @@
             }
           },
           "400": {
-            "description": "Bad request"
+            "description": "错误的请求"
           },
           "500": {
-            "description": "Server error"
+            "description": "服务器错误"
           }
         }
       },
       "get": {
         "tags": [
-          "Write Operations"
+          "写入操作"
         ],
-        "summary": "Example request for /insert",
+        "summary": "/insert的示例请求",
         "responses": {
           "200": {
-            "description": "Example",
+            "description": "示例",
             "content": {
               "application/json": {
                 "schema": {
@@ -485,10 +481,10 @@
     "/update": {
       "post": {
         "tags": [
-          "Write Operations"
+          "写入操作"
         ],
-        "summary": "Update documents in MongoDB",
-        "description": "Update documents with automatic upsert enabled by default",
+        "summary": "在MongoDB中更新文档",
+        "description": "更新文档，默认启用自动upsert",
         "requestBody": {
           "required": true,
           "content": {
@@ -511,14 +507,14 @@
                   },
                   "query": {
                     "type": "object",
-                    "description": "Query filter",
+                    "description": "查询过滤器",
                     "example": {
                       "_id": "123"
                     }
                   },
                   "update": {
                     "type": "object",
-                    "description": "Update operators",
+                    "description": "更新操作符",
                     "example": {
                       "$set": {
                         "status": "updated"
@@ -527,7 +523,7 @@
                   },
                   "options": {
                     "type": "object",
-                    "description": "Update options (default: upsert: true)",
+                    "description": "更新选项（默认：upsert: true）",
                     "example": {
                       "upsert": true
                     }
@@ -539,7 +535,7 @@
         },
         "responses": {
           "200": {
-            "description": "Update successful",
+            "description": "更新成功",
             "content": {
               "application/json": {
                 "schema": {
@@ -570,21 +566,21 @@
             }
           },
           "400": {
-            "description": "Bad request"
+            "description": "错误的请求"
           },
           "500": {
-            "description": "Server error"
+            "description": "服务器错误"
           }
         }
       },
       "get": {
         "tags": [
-          "Write Operations"
+          "写入操作"
         ],
-        "summary": "Example request for /update",
+        "summary": "/update的示例请求",
         "responses": {
           "200": {
-            "description": "Example",
+            "description": "示例",
             "content": {
               "application/json": {
                 "schema": {
@@ -599,10 +595,10 @@
     "/delete": {
       "post": {
         "tags": [
-          "Delete Operations"
+          "删除操作"
         ],
-        "summary": "Delete documents from MongoDB",
-        "description": "Delete one or multiple documents",
+        "summary": "从MongoDB删除文档",
+        "description": "删除一个或多个文档",
         "requestBody": {
           "required": true,
           "content": {
@@ -625,14 +621,14 @@
                   },
                   "query": {
                     "type": "object",
-                    "description": "Query filter",
+                    "description": "查询过滤器",
                     "example": {
                       "_id": "123"
                     }
                   },
                   "multi": {
                     "type": "boolean",
-                    "description": "Delete multiple documents (deleteMany) or single (deleteOne)",
+                    "description": "删除多个文档（deleteMany）或单个文档（deleteOne）",
                     "example": false
                   }
                 }
@@ -642,7 +638,7 @@
         },
         "responses": {
           "200": {
-            "description": "Delete successful",
+            "description": "删除成功",
             "content": {
               "application/json": {
                 "schema": {
@@ -660,10 +656,10 @@
             }
           },
           "400": {
-            "description": "Bad request"
+            "description": "错误的请求"
           },
           "500": {
-            "description": "Server error"
+            "description": "服务器错误"
           }
         }
       }
@@ -671,11 +667,11 @@
     "/delete_timeseries": {
       "post": {
         "tags": [
-          "Delete Operations",
-          "TimeSeries Operations"
+          "删除操作",
+          "时间序列操作"
         ],
-        "summary": "Delete documents from TimeSeries collection",
-        "description": "Delete documents with support for time range filtering. Uses deleteMany by default",
+        "summary": "从时间序列集合删除文档",
+        "description": "删除支持时间范围过滤的文档。默认使用deleteMany",
         "requestBody": {
           "required": true,
           "content": {
@@ -698,30 +694,30 @@
                   },
                   "query": {
                     "type": "object",
-                    "description": "Base filter",
+                    "description": "基础过滤器",
                     "example": {
                       "metadata.sensor": "temp_01"
                     }
                   },
                   "timeField": {
                     "type": "object",
-                    "description": "Optional time range filter",
+                    "description": "可选时间范围过滤器",
                     "properties": {
                       "start": {
                         "type": "string",
-                        "description": "ISO 8601 start datetime",
+                        "description": "ISO 8601开始日期时间",
                         "example": "2026-01-01T00:00:00Z"
                       },
                       "end": {
                         "type": "string",
-                        "description": "ISO 8601 end datetime",
+                        "description": "ISO 8601结束日期时间",
                         "example": "2026-01-31T23:59:59Z"
                       }
                     }
                   },
                   "multi": {
                     "type": "boolean",
-                    "description": "Delete multiple (deleteMany) or single (deleteOne)",
+                    "description": "删除多个（deleteMany）或单个（deleteOne）",
                     "example": true
                   }
                 }
@@ -731,7 +727,7 @@
         },
         "responses": {
           "200": {
-            "description": "Delete successful",
+            "description": "删除成功",
             "content": {
               "application/json": {
                 "schema": {
@@ -753,10 +749,10 @@
             }
           },
           "400": {
-            "description": "Bad request"
+            "description": "错误的请求"
           },
           "500": {
-            "description": "Server error"
+            "description": "服务器错误"
           }
         }
       }
@@ -764,11 +760,11 @@
     "/delete_timeseries_legacy": {
       "post": {
         "tags": [
-          "Delete Operations",
-          "TimeSeries Operations"
+          "删除操作",
+          "时间序列操作"
         ],
-        "summary": "Delete documents from TimeSeries collection (Legacy - MongoDB 6 compatible)",
-        "description": "Delete documents one-by-one for better compatibility with older MongoDB versions. Processes matching documents and deletes them individually",
+        "summary": "从时间序列集合删除文档（传统版本 - MongoDB 6兼容）",
+        "description": "逐个删除文档以提高与较旧MongoDB版本的兼容性。处理匹配的文档并逐个删除它们",
         "requestBody": {
           "required": true,
           "content": {
@@ -791,23 +787,23 @@
                   },
                   "query": {
                     "type": "object",
-                    "description": "Base filter",
+                    "description": "基础过滤器",
                     "example": {
                       "metadata.sensor": "temp_01"
                     }
                   },
                   "timeField": {
                     "type": "object",
-                    "description": "Optional time range filter",
+                    "description": "可选时间范围过滤器",
                     "properties": {
                       "start": {
                         "type": "string",
-                        "description": "ISO 8601 start datetime",
+                        "description": "ISO 8601开始日期时间",
                         "example": "2026-01-01T00:00:00Z"
                       },
                       "end": {
                         "type": "string",
-                        "description": "ISO 8601 end datetime",
+                        "description": "ISO 8601结束日期时间",
                         "example": "2026-01-31T23:59:59Z"
                       }
                     }
@@ -819,7 +815,7 @@
         },
         "responses": {
           "200": {
-            "description": "Delete successful",
+            "description": "删除成功",
             "content": {
               "application/json": {
                 "schema": {
@@ -831,15 +827,15 @@
                     },
                     "deletedCount": {
                       "type": "integer",
-                      "description": "Number of successfully deleted documents"
+                      "description": "成功删除的文档数量"
                     },
                     "failedCount": {
                       "type": "integer",
-                      "description": "Number of documents failed to delete"
+                      "description": "删除失败的文档数量"
                     },
                     "totalMatched": {
                       "type": "integer",
-                      "description": "Total documents matching the filter"
+                      "description": "匹配过滤器的文档总数"
                     },
                     "message": {
                       "type": "string"
@@ -850,10 +846,10 @@
             }
           },
           "400": {
-            "description": "Bad request"
+            "description": "错误的请求"
           },
           "500": {
-            "description": "Server error"
+            "description": "服务器错误"
           }
         }
       }
