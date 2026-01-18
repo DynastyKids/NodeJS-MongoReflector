@@ -7,10 +7,6 @@
     "license": {
       "name": "Apache 2.0",
       "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
-    },
-    "x-languages": {
-      "英文版 / English": "/api/en",
-      "中文版 / Chinese": "/api/zh_cn"
     }
   },
   "servers": [
