@@ -4,10 +4,12 @@ const os = require('os');
 const cors = require('cors')
 const path = require('path');
 
-const fs = require('fs');
 const swaggerUi = require('swagger-ui-express');
-const swaggerDocument = JSON.parse(fs.readFileSync('./api/swagger.json', 'utf8'));
-const swaggerDocumentZh = JSON.parse(fs.readFileSync('./api/swagger.zh_cn.json', 'utf8'));
+const swaggerDocument = require('./api/swagger.json');
+const swaggerDocumentZh = require('./api/swagger.zh_cn.json');
+// const fs = require('fs');
+// const swaggerDocument = JSON.parse(fs.readFileSync('./api/swagger.json', 'utf8'));
+// const swaggerDocumentZh = JSON.parse(fs.readFileSync('./api/swagger.zh_cn.json', 'utf8'));
 
 const app = express();
 var port = process.env.PORT || 3000;
@@ -114,10 +116,53 @@ app.get('/', (req, res) => {
         </html>
     `);
 });
-app.use("/api/en", swaggerUi.serve);
-app.get("/api/en", swaggerUi.setup(swaggerDocument));
-app.use("/api/zh_cn", swaggerUi.serve);
-app.get("/api/zh_cn", swaggerUi.setup(swaggerDocumentZh));
+app.get('/api', (req, res) => {
+    res.send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>API文档 / API Documentation</title>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <style>
+                body { font-family: sans-serif; padding: 40px; background: #f5f5f5; }
+                .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+                h1 { color: #333; text-align: center; margin-bottom: 30px; }
+                .selector { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; }
+                .lang-btn { padding: 15px 30px; font-size: 16px; border: 2px solid #4CAF50; background: white; color: #4CAF50; border-radius: 5px; cursor: pointer; text-decoration: none; transition: all 0.3s; font-weight: bold; }
+                .lang-btn:hover { background: #4CAF50; color: white; }
+                .info { margin-top: 30px; padding: 15px; background: #f0f0f0; border-left: 4px solid #4CAF50; border-radius: 4px; }
+                .info p { margin: 8px 0; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>Mongo Reflector</h1>
+                <h1>🌐 API Documentation Language / 选择语言 : </h1>
+                <div class="selector">
+                    <a href="/api/zh_cn" class="lang-btn">中文 🇨🇳</a>
+                    <a href="/api/en" class="lang-btn">English 🇬🇧</a>
+                </div>
+            </div>
+        </body>
+        </html>
+    `);
+});
+// app.use("/api/en", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+// app.use("/api/zh_cn", swaggerUi.serve, swaggerUi.setup(swaggerDocumentZh));
+app.use("/api/en", swaggerUi.serve, (req, res) => {
+    swaggerUi.setup(swaggerDocument, {
+        explorer: true,
+        customSiteTitle: "MongoReflector API Documentation"
+    })(req, res);
+});
+
+app.use("/api/zh_cn", swaggerUi.serve, (req, res) => {
+    swaggerUi.setup(swaggerDocumentZh, {
+        explorer: true,
+        customSiteTitle: "MongoReflector 文档"
+    })(req, res);
+});
 
 
 // --- 4. 错误处理与启动 ---
