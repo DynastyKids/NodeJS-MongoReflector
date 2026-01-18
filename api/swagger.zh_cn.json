@@ -3,7 +3,7 @@
   "info": {
     "description": "这是一个MongoDB后端反射器服务器。支持仅前端应用程序通过PAAS平台部署自己的后端来传输他们的数据库数据。",
     "version": "1.0.1",
-    "title": "MongoDB 中间件",
+    "title": "MongoDB 中间件连接器",
     "license": {
       "name": "Apache 2.0",
       "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
