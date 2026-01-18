@@ -525,7 +525,7 @@ app.post('/deleteTimeseries', async (req, res) => {
 // API to delete data from TimeSeries collection (Legacy - MongoDB 6 compatible)
 // Deletes documents one by one using deleteOne for better compatibility
 app.post('/deleteTimeseries_legacy', async (req, res) => {
-    const { mongoURI, dbName, collectionName, query, timeField } = req.body;
+    const { mongoURI, dbName, collectionName, query } = req.body;
 
     if (!mongoURI || !dbName || !collectionName || !query) {
         return res.status(400).json({
@@ -546,28 +546,15 @@ app.post('/deleteTimeseries_legacy', async (req, res) => {
         await client.connect();
         const db = client.db(dbName);
         const collection = db.collection(collectionName);
-        
-        // Build filter with time range if timeField is provided
         let filter = { ...query };
-        if (timeField && (timeField.start || timeField.end)) {
-            filter.timestamp = {};
-            if (timeField.start) {
-                filter.timestamp.$gte = new Date(timeField.start);
-            }
-            if (timeField.end) {
-                filter.timestamp.$lte = new Date(timeField.end);
-            }
-        }
 
         console.log('TimeSeries legacy delete filter:', filter);
         
-        // Find all matching documents first
         const documentsToDelete = await collection.find(filter).toArray();
         const totalCount = documentsToDelete.length;
         let deletedCount = 0;
         let failedCount = 0;
 
-        // Delete one by one for better compatibility with older MongoDB versions
         for (const doc of documentsToDelete) {
             try {
                 const result = await collection.deleteOne({ _id: doc._id });

@@ -478,6 +478,103 @@
         }
       }
     },
+    "/insertTimeseries": {
+      "post": {
+        "tags": [
+          "Write Operations",
+          "TimeSeries Operations"
+        ],
+        "summary": "Insert data into TimeSeries collection",
+        "description": "Insert data into a TimeSeries collection with automatic timestamp field handling",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["mongoURI", "dbName", "collectionName", "timeField", "documents"],
+                "properties": {
+                  "mongoURI": {
+                    "type": "string",
+                    "description": "MongoDB connection string",
+                    "example": "mongodb+srv://user:password@cluster.mongodb.net"
+                  },
+                  "dbName": {
+                    "type": "string",
+                    "description": "Database name",
+                    "example": "testDB"
+                  },
+                  "collectionName": {
+                    "type": "string",
+                    "description": "TimeSeries collection name",
+                    "example": "myTimeSeries"
+                  },
+                  "timeField": {
+                    "type": "object",
+                    "description": "Time field specification",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "description": "Time field name",
+                        "example": "timestamp"
+                      },
+                      "val": {
+                        "type": "string",
+                        "description": "ISO 8601 datetime string",
+                        "example": "2026-01-18T10:30:00Z"
+                      }
+                    }
+                  },
+                  "documents": {
+                    "type": "object",
+                    "description": "Document to insert",
+                    "example": {
+                      "metadata": {
+                        "sensor": "temp_01"
+                      },
+                      "value": 23.5
+                    }
+                  },
+                  "options": {
+                    "type": "object",
+                    "description": "Insert options",
+                    "example": {}
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Insert successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "result": {
+                      "type": "object",
+                      "description": "Insert result with insertedId"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
     "/update": {
       "post": {
         "tags": [
@@ -664,7 +761,7 @@
         }
       }
     },
-    "/delete_timeseries": {
+    "/deleteTimeseries": {
       "post": {
         "tags": [
           "Delete Operations",
@@ -757,7 +854,7 @@
         }
       }
     },
-    "/delete_timeseries_legacy": {
+    "/deleteTimeseries_legacy": {
       "post": {
         "tags": [
           "Delete Operations",

@@ -478,6 +478,103 @@
         }
       }
     },
+    "/insertTimeseries": {
+      "post": {
+        "tags": [
+          "写入操作",
+          "时间序列操作"
+        ],
+        "summary": "向时间序列集合插入数据",
+        "description": "为时间序列集合插入数据，具有自动时间戳字段处理",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["mongoURI", "dbName", "collectionName", "timeField", "documents"],
+                "properties": {
+                  "mongoURI": {
+                    "type": "string",
+                    "description": "MongoDB 连接字符串",
+                    "example": "mongodb+srv://user:password@cluster.mongodb.net"
+                  },
+                  "dbName": {
+                    "type": "string",
+                    "description": "数据库名称",
+                    "example": "testDB"
+                  },
+                  "collectionName": {
+                    "type": "string",
+                    "description": "时间序列集合名称",
+                    "example": "myTimeSeries"
+                  },
+                  "timeField": {
+                    "type": "object",
+                    "description": "时间字段规范",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "description": "时间字段名称",
+                        "example": "timestamp"
+                      },
+                      "val": {
+                        "type": "string",
+                        "description": "ISO 8601 日期时间字符串",
+                        "example": "2026-01-18T10:30:00Z"
+                      }
+                    }
+                  },
+                  "documents": {
+                    "type": "object",
+                    "description": "要插入的文档",
+                    "example": {
+                      "metadata": {
+                        "sensor": "temp_01"
+                      },
+                      "value": 23.5
+                    }
+                  },
+                  "options": {
+                    "type": "object",
+                    "description": "插入选项",
+                    "example": {}
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "插入成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "result": {
+                      "type": "object",
+                      "description": "包含 insertedId 的插入结果"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "错误的请求"
+          },
+          "500": {
+            "description": "服务器错误"
+          }
+        }
+      }
+    },
     "/update": {
       "post": {
         "tags": [
@@ -664,7 +761,7 @@
         }
       }
     },
-    "/delete_timeseries": {
+    "/deleteTimeseries": {
       "post": {
         "tags": [
           "删除操作",
@@ -757,7 +854,7 @@
         }
       }
     },
-    "/delete_timeseries_legacy": {
+    "/deleteTimeseries_legacy": {
       "post": {
         "tags": [
           "删除操作",
