@@ -203,6 +203,10 @@ app.post('/find', asyncHandler(async (req, res) => {
 }));
 
 // DataTables 分页查询
+app.post('/datatables_paginatefind', asyncHandler(async (req, res) => {
+    res.redirect(307, '/paginatefind');
+}));
+
 app.post('/paginatefind', asyncHandler(async (req, res) => {
     let { mongoURI, dbName, collectionName, query, start, length, order, search, columns } = req.body;
     const collection = await getMongoCollection(mongoURI, dbName, collectionName);
@@ -244,6 +248,10 @@ app.post('/distinct_field', asyncHandler(async (req, res) => {
     const collection = await getMongoCollection(mongoURI, dbName, collectionName);
     const result = await collection.distinct(field_name);
     res.json({ acknowledged: true, results: result });
+}));
+
+app.post('/timeseries_insert', asyncHandler(async (req, res) => {
+    res.redirect(307, '/insertTimeSeries');
 }));
 
 app.post('/insertTimeSeries', async (req, res) => {
@@ -585,6 +593,10 @@ app.post('/deleteTimeseries_legacy', async (req, res) => {
         await client.close();
     }
 });
+
+app.post('/timeseries_delete', asyncHandler(async (req, res) => {
+    res.redirect(307, '/deleteTimeseries_legacy');
+}));
 
 // Start server
 const server = app.listen(port, () => {
