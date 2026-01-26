@@ -42,7 +42,18 @@ cd NodeJS-MongoReflector
 npm install
 ```
 
-### 3. Start the Server
+### 3. Create a `.env` File
+
+Before running the server, add a `.env` file at the repository root (the file is already ignored by git) and populate it with your environment variables:
+
+```bash
+PORT=3000
+MONGO_URI=mongodb+srv://user:password@cluster.mongodb.net
+```
+
+Replace the placeholder URI with your real connection string and save the file.
+
+### 4. Start the Server
 
 ```bash
 npm start
@@ -50,7 +61,7 @@ npm start
 
 The server will start on `http://localhost:3000`
 
-### 4. Access API Documentation
+### 5. Access API Documentation
 
 - **Language Selector**: http://localhost:3000/
 - **English Docs**: http://localhost:3000/api/en

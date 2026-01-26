@@ -42,7 +42,18 @@ cd NodeJS-MongoReflector
 npm install
 ```
 
-### 3. 启动服务器
+### 3. 创建 `.env` 文件
+
+在启动服务器之前，在仓库根目录添加一个 `.env` 文件（该文件在 `.gitignore` 中已经被忽略），并写入所需的环境变量：
+
+```bash
+PORT=3000
+MONGO_URI=mongodb+srv://user:password@cluster.mongodb.net
+```
+
+将示例 URI 替换为真实的 MongoDB 连接字符串后保存文件。
+
+### 4. 启动服务器
 
 ```bash
 npm start
@@ -50,7 +61,7 @@ npm start
 
 服务器将在 `http://localhost:3000` 启动
 
-### 4. 访问 API 文档
+### 5. 访问 API 文档
 
 - **语言选择**: http://localhost:3000/
 - **英文文档**: http://localhost:3000/api/en

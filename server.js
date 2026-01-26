@@ -2,6 +2,7 @@ const express = require('express');
 const { MongoClient, Timestamp, ServerApiVersion, Decimal128 } = require('mongodb');
 const os = require('os');
 const cors = require('cors')
+const fs = require('fs');
 const path = require('path');
 
 const swaggerUi = require('swagger-ui-express');
@@ -12,7 +13,26 @@ const swaggerDocumentZh = require('./api/swagger.zh_cn.json');
 // const swaggerDocumentZh = JSON.parse(fs.readFileSync('./api/swagger.zh_cn.json', 'utf8'));
 
 const app = express();
-var port = process.env.PORT || 3000;
+
+function loadDotEnv(envPath = path.resolve(__dirname, '.env')) {
+    if (!fs.existsSync(envPath)) return;
+    const lines = fs.readFileSync(envPath, 'utf8').split(/\r?\n/);
+    for (const rawLine of lines) {
+        const line = rawLine.trim();
+        if (!line || line.startsWith('#')) continue;
+        const [key, ...rest] = line.split('=');
+        if (!key) continue;
+        const value = rest.join('=').trim();
+        if (!value) continue;
+        if (process.env[key] === undefined) {
+            process.env[key] = value;
+        }
+    }
+}
+
+loadDotEnv();
+
+const port = parseInt(process.env.PORT, 10) || 3000;
 
 // --- 1. 连接池管理 (改进点1) ---
 // 在内存中缓存连接，避免每个请求都进行三次握手
