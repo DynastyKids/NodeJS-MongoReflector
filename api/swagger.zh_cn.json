@@ -37,6 +37,32 @@
     }
   ],
   "paths": {
+    "/test": {
+      "get": {
+        "tags": [
+          "健康检查"
+        ],
+        "summary": "基础服务自检",
+        "description": "返回静态JSON以确认服务正常运行",
+        "responses": {
+          "200": {
+            "description": "测试响应",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "name": { "type": "string", "example": "MONGOREFLECTOR" },
+                    "test": { "type": "string", "example": "OK" },
+                    "version": { "type": "string", "example": "0.1.0" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/ping": {
       "post": {
         "tags": [

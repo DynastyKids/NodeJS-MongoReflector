@@ -67,6 +67,15 @@ app.use((req, res, next) => {
     next();
 });
 
+// Health-style test endpoint
+app.get('/test', (req, res) => {
+    res.json({
+        name: "MONGOREFLECTOR",
+        test: "OK",
+        version: "0.1.0"
+    });
+});
+
 // 异步错误处理装饰器 (改进点3)
 const asyncHandler = fn => (req, res, next) => 
     Promise.resolve(fn(req, res, next)).catch(next);

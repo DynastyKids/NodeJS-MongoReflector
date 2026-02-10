@@ -37,6 +37,32 @@
     }
   ],
   "paths": {
+    "/test": {
+      "get": {
+        "tags": [
+          "Health Check"
+        ],
+        "summary": "Basic service test",
+        "description": "Returns static JSON confirming the service is running",
+        "responses": {
+          "200": {
+            "description": "Test response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "name": { "type": "string", "example": "MONGOREFLECTOR" },
+                    "test": { "type": "string", "example": "OK" },
+                    "version": { "type": "string", "example": "0.1.0" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/ping": {
       "post": {
         "tags": [
