@@ -134,7 +134,7 @@
           "Read Operations"
         ],
         "summary": "Find documents in MongoDB",
-        "description": "Query documents with optional filtering",
+        "description": "Query documents with optional filtering. Results are streamed internally and truncated when the JSON payload reaches 32MB (MAX_FIND_RESPONSE_BYTES).",
         "requestBody": {
           "required": true,
           "content": {
@@ -194,6 +194,26 @@
                       "items": {
                         "type": "object"
                       }
+                    },
+                    "truncated": {
+                      "type": "boolean",
+                      "description": "True when response was truncated due to payload limit",
+                      "example": false
+                    },
+                    "maxPayloadBytes": {
+                      "type": "integer",
+                      "description": "Maximum response payload size in bytes",
+                      "example": 33554432
+                    },
+                    "payloadBytes": {
+                      "type": "integer",
+                      "description": "Estimated JSON payload size returned in bytes",
+                      "example": 18432
+                    },
+                    "scanned": {
+                      "type": "integer",
+                      "description": "Number of documents scanned from MongoDB cursor",
+                      "example": 120
                     }
                   }
                 }
@@ -215,7 +235,7 @@
           "Read Operations"
         ],
         "summary": "Find documents with pagination (DataTables protocol)",
-        "description": "Query documents with support for pagination, sorting, and global search",
+        "description": "Query documents with pagination, sorting, and global search. `length` is clamped to MAX_PAGINATE_LENGTH (default 500). Page payload is truncated at 32MB if needed.",
         "requestBody": {
           "required": true,
           "content": {
@@ -248,7 +268,7 @@
                   },
                   "length": {
                     "type": "integer",
-                    "description": "Limit documents count",
+                    "description": "Limit documents count (clamped to max 500 by default)",
                     "example": 10
                   },
                   "columns": {
@@ -314,6 +334,27 @@
                       "items": {
                         "type": "object"
                       }
+                    },
+                    "truncated": {
+                      "type": "boolean",
+                      "description": "True when response was truncated due to payload limit"
+                    },
+                    "maxPayloadBytes": {
+                      "type": "integer",
+                      "description": "Maximum response payload size in bytes",
+                      "example": 33554432
+                    },
+                    "payloadBytes": {
+                      "type": "integer",
+                      "description": "Estimated JSON payload size returned in bytes"
+                    },
+                    "scanned": {
+                      "type": "integer",
+                      "description": "Number of documents scanned from MongoDB cursor for this page"
+                    },
+                    "effectiveLength": {
+                      "type": "integer",
+                      "description": "Effective length used by server after clamping"
                     }
                   }
                 }
@@ -332,7 +373,7 @@
           "Read Operations"
         ],
         "summary": "Get distinct values for a field",
-        "description": "Returns array of unique values for specified field",
+        "description": "Returns unique values for specified field using cursor-based aggregation. Results are limited by value count and 32MB payload cap.",
         "requestBody": {
           "required": true,
           "content": {
@@ -357,6 +398,13 @@
                     "type": "string",
                     "description": "Field name to get distinct values from",
                     "example": "status"
+                  },
+                  "query": {
+                    "type": "object",
+                    "description": "Optional filter applied before collecting distinct values",
+                    "example": {
+                      "tenantId": "acme"
+                    }
                   }
                 }
               }
@@ -381,11 +429,36 @@
                         "type": "string"
                       },
                       "example": ["active", "inactive", "pending"]
+                    },
+                    "truncated": {
+                      "type": "boolean",
+                      "description": "True when response was truncated by size or value-count limit"
+                    },
+                    "maxPayloadBytes": {
+                      "type": "integer",
+                      "description": "Maximum response payload size in bytes",
+                      "example": 33554432
+                    },
+                    "payloadBytes": {
+                      "type": "integer",
+                      "description": "Estimated JSON payload size returned in bytes"
+                    },
+                    "scanned": {
+                      "type": "integer",
+                      "description": "Number of grouped records scanned from aggregation cursor"
+                    },
+                    "maxValues": {
+                      "type": "integer",
+                      "description": "Maximum number of distinct values returned",
+                      "example": 10000
                     }
                   }
                 }
               }
             }
+          },
+          "400": {
+            "description": "Bad request (for example, missing field_name)"
           },
           "500": {
             "description": "Server error"
