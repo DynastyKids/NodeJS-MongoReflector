@@ -13,6 +13,9 @@ const swaggerDocumentZh = require('./api/swagger.zh_cn.json');
 // const swaggerDocumentZh = JSON.parse(fs.readFileSync('./api/swagger.zh_cn.json', 'utf8'));
 
 const app = express();
+const MAX_FIND_RESPONSE_BYTES = parseInt(process.env.MAX_FIND_RESPONSE_BYTES, 10) || (32 * 1024 * 1024);
+const MAX_PAGINATE_LENGTH = parseInt(process.env.MAX_PAGINATE_LENGTH, 10) || 500;
+const MAX_DISTINCT_VALUES = parseInt(process.env.MAX_DISTINCT_VALUES, 10) || 10000;
 
 function loadDotEnv(envPath = path.resolve(__dirname, '.env')) {
     if (!fs.existsSync(envPath)) return;
@@ -95,6 +98,49 @@ function sanitizeQuery(query) {
         }
     }
     return safe;
+}
+
+function estimateJsonBytes(value) {
+    return Buffer.byteLength(JSON.stringify(value), 'utf8');
+}
+
+async function collectCursorWithLimit(cursor, maxBytes, maxItems = Number.POSITIVE_INFINITY, mapper = value => value) {
+    const items = [];
+    let payloadBytes = 0;
+    let scanned = 0;
+    let truncated = false;
+
+    try {
+        while (await cursor.hasNext()) {
+            const doc = await cursor.next();
+            scanned += 1;
+
+            const mapped = mapper(doc);
+            const itemBytes = estimateJsonBytes(mapped) + 1;
+
+            if (items.length >= maxItems) {
+                truncated = true;
+                break;
+            }
+
+            if (items.length > 0 && (payloadBytes + itemBytes) > maxBytes) {
+                truncated = true;
+                break;
+            }
+
+            if (items.length === 0 && itemBytes > maxBytes) {
+                truncated = true;
+                break;
+            }
+
+            items.push(mapped);
+            payloadBytes += itemBytes;
+        }
+    } finally {
+        await cursor.close();
+    }
+
+    return { items, payloadBytes, scanned, truncated };
 }
 
 
@@ -226,9 +272,18 @@ app.post('/find', asyncHandler(async (req, res) => {
     
     const collection = await getMongoCollection(mongoURI, dbName, collectionName);
     const safeQuery = sanitizeQuery(query);
-    const data = await collection.find(safeQuery, options || {}).toArray();
-    
-    res.json({ acknowledged: true, results: data });
+    const findOptions = { ...(options || {}) };
+    const cursor = collection.find(safeQuery, findOptions);
+    const { items: results, payloadBytes, scanned, truncated } = await collectCursorWithLimit(cursor, MAX_FIND_RESPONSE_BYTES);
+
+    res.json({
+        acknowledged: true,
+        results,
+        truncated,
+        maxPayloadBytes: MAX_FIND_RESPONSE_BYTES,
+        payloadBytes,
+        scanned
+    });
 }));
 
 // DataTables 分页查询
@@ -240,25 +295,33 @@ app.post('/paginatefind', asyncHandler(async (req, res) => {
     let { mongoURI, dbName, collectionName, query, start, length, order, search, columns } = req.body;
     const collection = await getMongoCollection(mongoURI, dbName, collectionName);
     const skip = parseInt(start) || 0;
-    const limit = parseInt(length) || 10;
+    const requestedLength = parseInt(length) || 10;
+    const limit = Math.min(Math.max(requestedLength, 1), MAX_PAGINATE_LENGTH);
     let filter = sanitizeQuery(query);
+    const normalizedColumns = Array.isArray(columns) ? columns : [];
 
     // 处理全局搜索
-    if (search?.value) {
+    if (search?.value && normalizedColumns.length > 0) {
         const searchRegex = new RegExp(search.value, 'i');
-        filter["$or"] = columns.filter(c => c.data).map(c => ({ [c.data]: searchRegex }));
+        filter["$or"] = normalizedColumns.filter(c => c.data).map(c => ({ [c.data]: searchRegex }));
     }
 
     // 处理排序
     let sort = {};
-    if (order && order.length > 0 && columns) {
+    if (order && order.length > 0 && normalizedColumns.length > 0) {
         const colIdx = order[0].column;
-        const colName = columns[colIdx].data;
-        sort[colName] = order[0].dir === 'asc' ? 1 : -1;
+        const colName = normalizedColumns[colIdx]?.data;
+        if (colName) {
+            sort[colName] = order[0].dir === 'asc' ? 1 : -1;
+        }
     }
 
-    const [data, total, filteredTotal] = await Promise.all([
-        collection.find(filter).sort(sort).skip(skip).limit(limit).toArray(),
+    const [pageData, total, filteredTotal] = await Promise.all([
+        collectCursorWithLimit(
+            collection.find(filter).sort(sort).skip(skip).limit(limit),
+            MAX_FIND_RESPONSE_BYTES,
+            limit
+        ),
         collection.countDocuments({}),
         collection.countDocuments(filter)
     ]);
@@ -267,16 +330,46 @@ app.post('/paginatefind', asyncHandler(async (req, res) => {
         draw: parseInt(req.body.draw) || 1,
         recordsTotal: total,
         recordsFiltered: filteredTotal,
-        data: data
+        data: pageData.items,
+        truncated: pageData.truncated,
+        maxPayloadBytes: MAX_FIND_RESPONSE_BYTES,
+        payloadBytes: pageData.payloadBytes,
+        scanned: pageData.scanned,
+        effectiveLength: limit
     });
 }));
 
 // Distinct 接口 Gemini3 Testing
 app.post('/distinct_field', asyncHandler(async (req, res) => {
-    const { mongoURI, dbName, collectionName, field_name } = req.body;
+    const { mongoURI, dbName, collectionName, field_name, query } = req.body;
+    if (!field_name || typeof field_name !== 'string') {
+        return res.status(400).json({ acknowledged: false, message: "field_name is required" });
+    }
+
     const collection = await getMongoCollection(mongoURI, dbName, collectionName);
-    const result = await collection.distinct(field_name);
-    res.json({ acknowledged: true, results: result });
+    const safeQuery = sanitizeQuery(query);
+    const distinctCursor = collection.aggregate([
+        { $match: safeQuery },
+        { $group: { _id: `$${field_name}` } },
+        { $project: { _id: 0, value: '$_id' } }
+    ], { allowDiskUse: true });
+
+    const distinctData = await collectCursorWithLimit(
+        distinctCursor,
+        MAX_FIND_RESPONSE_BYTES,
+        MAX_DISTINCT_VALUES,
+        doc => doc.value
+    );
+
+    res.json({
+        acknowledged: true,
+        results: distinctData.items,
+        truncated: distinctData.truncated,
+        maxPayloadBytes: MAX_FIND_RESPONSE_BYTES,
+        payloadBytes: distinctData.payloadBytes,
+        scanned: distinctData.scanned,
+        maxValues: MAX_DISTINCT_VALUES
+    });
 }));
 
 app.post('/timeseries_insert', asyncHandler(async (req, res) => {
@@ -388,12 +481,37 @@ app.get('/insert', (req, res) => {
 
 // API to update data
 app.post('/update', async (req, res) => {
-    const { mongoURI, dbName, collectionName, query, update, options } = req.body;
+    const { mongoURI, dbName, collectionName, query, update, options, upsert } = req.body;
+
+    const isPlainObject = (value) => !!value && typeof value === 'object' && !Array.isArray(value);
 
     if (!mongoURI || !dbName || !collectionName || !query || !update) {
         return res.status(400).json({
             acknowledged: false,
             message: "Please provide mongoURI, dbName, collectionName, query, and update."
+        });
+    }
+
+    if (!isPlainObject(query)) {
+        return res.status(400).json({
+            acknowledged: false,
+            message: "query must be a JSON object."
+        });
+    }
+
+    if (!isPlainObject(update)) {
+        return res.status(400).json({
+            acknowledged: false,
+            message: "update must be a JSON object."
+        });
+    }
+
+    const safeQuery = sanitizeQuery(query);
+
+    if (Object.keys(safeQuery).length === 0) {
+        return res.status(400).json({
+            acknowledged: false,
+            message: "query cannot be an empty object for /update."
         });
     }
 
@@ -409,9 +527,16 @@ app.post('/update', async (req, res) => {
         await client.connect()
         const db = client.db(dbName)
         const collection = db.collection(collectionName)
-        console.log(query, update)
+        console.log(safeQuery, update)
 
-        let result = await collection.updateMany(query, update, (options === {} ? { "upsert": true } : options));
+        // Accept both `options.upsert` and legacy top-level `upsert`.
+        // Default is true, unless user explicitly passes false.
+        const parsedOptions = isPlainObject(options) ? { ...options } : {};
+        const rawUpsert = parsedOptions.upsert ?? upsert;
+        const isExplicitFalse = rawUpsert === false || (typeof rawUpsert === 'string' && rawUpsert.trim().toLowerCase() === 'false');
+        parsedOptions.upsert = !isExplicitFalse;
+
+        let result = await collection.updateMany(safeQuery, update, parsedOptions);
 
         res.json({
             acknowledged: true,
@@ -448,8 +573,9 @@ app.get('/update', (req, res) => {
             update: {
                 "$set": { "fieldToUpdate": "newValue" }
             },
-            upsert: true,
-            multi: false
+            options: {
+                upsert: true
+            }
         }
     };
     res.json(example);
@@ -587,21 +713,27 @@ app.post('/deleteTimeseries_legacy', async (req, res) => {
 
         console.log('TimeSeries legacy delete filter:', filter);
         
-        const documentsToDelete = await collection.find(filter).toArray();
-        const totalCount = documentsToDelete.length;
+        const cursor = collection.find(filter, { projection: { _id: 1 } });
+        let totalCount = 0;
         let deletedCount = 0;
         let failedCount = 0;
 
-        for (const doc of documentsToDelete) {
-            try {
-                const result = await collection.deleteOne({ _id: doc._id });
-                if (result.deletedCount > 0) {
-                    deletedCount++;
+        try {
+            while (await cursor.hasNext()) {
+                const doc = await cursor.next();
+                totalCount++;
+                try {
+                    const result = await collection.deleteOne({ _id: doc._id });
+                    if (result.deletedCount > 0) {
+                        deletedCount++;
+                    }
+                } catch (deleteErr) {
+                    console.error(`Failed to delete document ${doc._id}:`, deleteErr);
+                    failedCount++;
                 }
-            } catch (deleteErr) {
-                console.error(`Failed to delete document ${doc._id}:`, deleteErr);
-                failedCount++;
             }
+        } finally {
+            await cursor.close();
         }
 
         res.json({

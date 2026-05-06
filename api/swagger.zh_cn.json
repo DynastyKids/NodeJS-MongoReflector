@@ -134,7 +134,7 @@
           "读取操作"
         ],
         "summary": "从MongoDB中查找文档",
-        "description": "使用可选过滤器查询文档",
+        "description": "使用可选过滤器查询文档。服务端内部采用游标流式读取，当JSON响应体达到32MB（MAX_FIND_RESPONSE_BYTES）时会截断返回。",
         "requestBody": {
           "required": true,
           "content": {
@@ -194,6 +194,26 @@
                       "items": {
                         "type": "object"
                       }
+                    },
+                    "truncated": {
+                      "type": "boolean",
+                      "description": "当响应因负载大小限制被截断时为 true",
+                      "example": false
+                    },
+                    "maxPayloadBytes": {
+                      "type": "integer",
+                      "description": "响应负载字节上限",
+                      "example": 33554432
+                    },
+                    "payloadBytes": {
+                      "type": "integer",
+                      "description": "本次返回结果估算的JSON字节大小",
+                      "example": 18432
+                    },
+                    "scanned": {
+                      "type": "integer",
+                      "description": "MongoDB游标已扫描文档数",
+                      "example": 120
                     }
                   }
                 }
@@ -215,7 +235,7 @@
           "读取操作"
         ],
         "summary": "分页查找文档（DataTables协议）",
-        "description": "支持分页、排序和全局搜索的查询文档",
+        "description": "支持分页、排序和全局搜索。`length` 会被限制在 MAX_PAGINATE_LENGTH（默认500）以内；分页响应达到32MB时会被截断。",
         "requestBody": {
           "required": true,
           "content": {
@@ -248,7 +268,7 @@
                   },
                   "length": {
                     "type": "integer",
-                    "description": "限制文档数量",
+                    "description": "限制文档数量（默认最大限制为500）",
                     "example": 10
                   },
                   "columns": {
@@ -314,6 +334,27 @@
                       "items": {
                         "type": "object"
                       }
+                    },
+                    "truncated": {
+                      "type": "boolean",
+                      "description": "当响应因负载大小限制被截断时为 true"
+                    },
+                    "maxPayloadBytes": {
+                      "type": "integer",
+                      "description": "响应负载字节上限",
+                      "example": 33554432
+                    },
+                    "payloadBytes": {
+                      "type": "integer",
+                      "description": "本次返回结果估算的JSON字节大小"
+                    },
+                    "scanned": {
+                      "type": "integer",
+                      "description": "当前分页游标扫描的文档数"
+                    },
+                    "effectiveLength": {
+                      "type": "integer",
+                      "description": "服务端实际采用的length（经过上限收敛）"
                     }
                   }
                 }
@@ -332,7 +373,7 @@
           "读取操作"
         ],
         "summary": "获取字段的不同值",
-        "description": "返回指定字段的唯一值数组",
+        "description": "基于游标聚合返回指定字段的唯一值。结果受最大值数量和32MB响应负载限制。",
         "requestBody": {
           "required": true,
           "content": {
@@ -357,6 +398,13 @@
                     "type": "string",
                     "description": "要获取不同值的字段名称",
                     "example": "status"
+                  },
+                  "query": {
+                    "type": "object",
+                    "description": "可选过滤条件，在提取唯一值前先应用",
+                    "example": {
+                      "tenantId": "acme"
+                    }
                   }
                 }
               }
@@ -381,11 +429,36 @@
                         "type": "string"
                       },
                       "example": ["active", "inactive", "pending"]
+                    },
+                    "truncated": {
+                      "type": "boolean",
+                      "description": "当响应因大小或数量限制被截断时为 true"
+                    },
+                    "maxPayloadBytes": {
+                      "type": "integer",
+                      "description": "响应负载字节上限",
+                      "example": 33554432
+                    },
+                    "payloadBytes": {
+                      "type": "integer",
+                      "description": "本次返回结果估算的JSON字节大小"
+                    },
+                    "scanned": {
+                      "type": "integer",
+                      "description": "聚合游标扫描记录数"
+                    },
+                    "maxValues": {
+                      "type": "integer",
+                      "description": "最多返回的唯一值数量",
+                      "example": 10000
                     }
                   }
                 }
               }
             }
+          },
+          "400": {
+            "description": "错误的请求（例如缺少 field_name）"
           },
           "500": {
             "description": "服务器错误"
@@ -607,7 +680,7 @@
           "写入操作"
         ],
         "summary": "在MongoDB中更新文档",
-        "description": "更新文档，默认启用自动upsert",
+        "description": "更新文档。默认启用 upsert，只有在显式传入 upsert=false 时才会关闭。",
         "requestBody": {
           "required": true,
           "content": {
@@ -630,7 +703,8 @@
                   },
                   "query": {
                     "type": "object",
-                    "description": "查询过滤器",
+                    "description": "查询过滤器（必须为非空对象）",
+                    "minProperties": 1,
                     "example": {
                       "_id": "123"
                     }
@@ -646,10 +720,15 @@
                   },
                   "options": {
                     "type": "object",
-                    "description": "更新选项（默认：upsert: true）",
+                    "description": "MongoDB 更新选项。`upsert` 默认为 true，除非显式设置为 false。",
                     "example": {
                       "upsert": true
                     }
+                  },
+                  "upsert": {
+                    "type": ["boolean", "string"],
+                    "description": "兼容旧版本的顶层字段。传入 false 或 \"false\" 时会关闭 upsert；其他情况默认启用 upsert。",
+                    "example": false
                   }
                 }
               }
