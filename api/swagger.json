@@ -680,7 +680,7 @@
           "Write Operations"
         ],
         "summary": "Update documents in MongoDB",
-        "description": "Update documents with automatic upsert enabled by default",
+        "description": "Update documents. Upsert is enabled by default and will only be disabled when upsert is explicitly false.",
         "requestBody": {
           "required": true,
           "content": {
@@ -703,7 +703,8 @@
                   },
                   "query": {
                     "type": "object",
-                    "description": "Query filter",
+                    "description": "Query filter (must be a non-empty object)",
+                    "minProperties": 1,
                     "example": {
                       "_id": "123"
                     }
@@ -719,10 +720,15 @@
                   },
                   "options": {
                     "type": "object",
-                    "description": "Update options (default: upsert: true)",
+                    "description": "MongoDB update options. `upsert` defaults to true unless explicitly set to false.",
                     "example": {
                       "upsert": true
                     }
+                  },
+                  "upsert": {
+                    "type": ["boolean", "string"],
+                    "description": "Legacy top-level compatibility field. `false` or \"false\" disables upsert; otherwise upsert stays enabled by default.",
+                    "example": false
                   }
                 }
               }

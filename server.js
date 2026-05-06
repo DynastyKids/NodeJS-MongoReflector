@@ -481,12 +481,37 @@ app.get('/insert', (req, res) => {
 
 // API to update data
 app.post('/update', async (req, res) => {
-    const { mongoURI, dbName, collectionName, query, update, options } = req.body;
+    const { mongoURI, dbName, collectionName, query, update, options, upsert } = req.body;
+
+    const isPlainObject = (value) => !!value && typeof value === 'object' && !Array.isArray(value);
 
     if (!mongoURI || !dbName || !collectionName || !query || !update) {
         return res.status(400).json({
             acknowledged: false,
             message: "Please provide mongoURI, dbName, collectionName, query, and update."
+        });
+    }
+
+    if (!isPlainObject(query)) {
+        return res.status(400).json({
+            acknowledged: false,
+            message: "query must be a JSON object."
+        });
+    }
+
+    if (!isPlainObject(update)) {
+        return res.status(400).json({
+            acknowledged: false,
+            message: "update must be a JSON object."
+        });
+    }
+
+    const safeQuery = sanitizeQuery(query);
+
+    if (Object.keys(safeQuery).length === 0) {
+        return res.status(400).json({
+            acknowledged: false,
+            message: "query cannot be an empty object for /update."
         });
     }
 
@@ -502,9 +527,16 @@ app.post('/update', async (req, res) => {
         await client.connect()
         const db = client.db(dbName)
         const collection = db.collection(collectionName)
-        console.log(query, update)
+        console.log(safeQuery, update)
 
-        let result = await collection.updateMany(query, update, (options === {} ? { "upsert": true } : options));
+        // Accept both `options.upsert` and legacy top-level `upsert`.
+        // Default is true, unless user explicitly passes false.
+        const parsedOptions = isPlainObject(options) ? { ...options } : {};
+        const rawUpsert = parsedOptions.upsert ?? upsert;
+        const isExplicitFalse = rawUpsert === false || (typeof rawUpsert === 'string' && rawUpsert.trim().toLowerCase() === 'false');
+        parsedOptions.upsert = !isExplicitFalse;
+
+        let result = await collection.updateMany(safeQuery, update, parsedOptions);
 
         res.json({
             acknowledged: true,
@@ -541,8 +573,9 @@ app.get('/update', (req, res) => {
             update: {
                 "$set": { "fieldToUpdate": "newValue" }
             },
-            upsert: true,
-            multi: false
+            options: {
+                upsert: true
+            }
         }
     };
     res.json(example);
