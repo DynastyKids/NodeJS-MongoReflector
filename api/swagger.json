@@ -1,8 +1,8 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "description": "This is a MongoDB Backend reflector server. Supporting front-end only application to deploy their own backend via PAAS platform to transmit their database data.",
-    "version": "1.0.1",
+    "description": "This is a MongoDB Backend reflector server. Supporting front-end only application to deploy their own backend via PAAS platform to transmit their database data.\n\n**Extended JSON**: use {\"$oid\": \"...\"}, {\"$date\": \"...\"}, {\"$numberDecimal\": \"...\"} etc. anywhere in query, documents, update, pipeline or options to send real BSON types. Add \"responseFormat\": \"ejson\" to any request to receive results in Extended JSON.\n\n**Access keys**: if the server sets ALLOW_PUBLIC_USE=false, every POST needs an unexpired key from ALLOWED_KEYPAIRS in the X-Api-Key header (or Authorization: Bearer <key>); otherwise 401.\n\n**Errors**: always JSON: { acknowledged: false, message, code?, codeName?, status?, timestamp }.",
+    "version": "1.1.0",
     "title": "Mongo Reflector",
     "license": {
       "name": "Apache 2.0",
@@ -30,6 +30,10 @@
     {
       "name": "Delete Operations",
       "description": "Delete data from MongoDB collections"
+    },
+    {
+      "name": "Advanced Queries",
+      "description": "Aggregation, counts, single-document and bulk operations"
     },
     {
       "name": "TimeSeries Operations",
@@ -466,6 +470,1846 @@
         }
       }
     },
+    "/findOne": {
+      "post": {
+        "tags": [
+          "Advanced Queries"
+        ],
+        "summary": "Find one document",
+        "description": "Returns the first matching document, or null.",
+        "security": [
+          {},
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "dbName",
+                  "collectionName"
+                ],
+                "properties": {
+                  "mongoURI": {
+                    "type": "string",
+                    "description": "Connection string. May be omitted if the server sets DEFAULT_MONGO_URI.",
+                    "example": "mongodb+srv://user:password@cluster.mongodb.net"
+                  },
+                  "dbName": {
+                    "type": "string",
+                    "description": "Database name",
+                    "example": "testDB"
+                  },
+                  "collectionName": {
+                    "type": "string",
+                    "description": "Collection name",
+                    "example": "testCollection"
+                  },
+                  "responseFormat": {
+                    "type": "string",
+                    "enum": [
+                      "json",
+                      "ejson"
+                    ],
+                    "description": "Set to \"ejson\" to receive BSON types as Extended JSON."
+                  },
+                  "query": {
+                    "type": "object",
+                    "description": "Query filter. Supports Extended JSON ({\"$oid\": ...}) and \"RegExp(pattern, flags)\" strings.",
+                    "example": {
+                      "_id": {
+                        "$oid": "507f1f77bcf86cd799439011"
+                      }
+                    }
+                  },
+                  "options": {
+                    "type": "object",
+                    "description": "Driver options (projection, sort, skip, limit, collation, hint, maxTimeMS, ...).",
+                    "example": {
+                      "projection": {
+                        "name": 1
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "result": {
+                      "type": "object",
+                      "nullable": true,
+                      "description": "Matching document or null"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Refused by a server security setting",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Database or server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/count": {
+      "post": {
+        "tags": [
+          "Advanced Queries"
+        ],
+        "summary": "Count documents",
+        "description": "countDocuments(query), or estimatedDocumentCount() when estimated is true.",
+        "security": [
+          {},
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "dbName",
+                  "collectionName"
+                ],
+                "properties": {
+                  "mongoURI": {
+                    "type": "string",
+                    "description": "Connection string. May be omitted if the server sets DEFAULT_MONGO_URI.",
+                    "example": "mongodb+srv://user:password@cluster.mongodb.net"
+                  },
+                  "dbName": {
+                    "type": "string",
+                    "description": "Database name",
+                    "example": "testDB"
+                  },
+                  "collectionName": {
+                    "type": "string",
+                    "description": "Collection name",
+                    "example": "testCollection"
+                  },
+                  "responseFormat": {
+                    "type": "string",
+                    "enum": [
+                      "json",
+                      "ejson"
+                    ],
+                    "description": "Set to \"ejson\" to receive BSON types as Extended JSON."
+                  },
+                  "query": {
+                    "type": "object",
+                    "description": "Query filter. Supports Extended JSON ({\"$oid\": ...}) and \"RegExp(pattern, flags)\" strings.",
+                    "example": {
+                      "status": "active"
+                    }
+                  },
+                  "estimated": {
+                    "type": "boolean",
+                    "description": "Use the fast collection-metadata count (ignores query).",
+                    "example": false
+                  },
+                  "options": {
+                    "type": "object",
+                    "description": "Driver options (projection, sort, skip, limit, collation, hint, maxTimeMS, ...)."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "count": {
+                      "type": "integer",
+                      "description": "Number of documents",
+                      "example": 42
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Refused by a server security setting",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Database or server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/aggregate": {
+      "post": {
+        "tags": [
+          "Advanced Queries"
+        ],
+        "summary": "Run an aggregation pipeline",
+        "description": "Results are capped by the response size limit like /find. $out and $merge are refused unless the server sets ALLOW_AGGREGATE_WRITES=true. $where, $function and $accumulator are refused unless ALLOW_SERVER_SIDE_JS=true.",
+        "security": [
+          {},
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "dbName",
+                  "collectionName",
+                  "pipeline"
+                ],
+                "properties": {
+                  "mongoURI": {
+                    "type": "string",
+                    "description": "Connection string. May be omitted if the server sets DEFAULT_MONGO_URI.",
+                    "example": "mongodb+srv://user:password@cluster.mongodb.net"
+                  },
+                  "dbName": {
+                    "type": "string",
+                    "description": "Database name",
+                    "example": "testDB"
+                  },
+                  "collectionName": {
+                    "type": "string",
+                    "description": "Collection name",
+                    "example": "testCollection"
+                  },
+                  "responseFormat": {
+                    "type": "string",
+                    "enum": [
+                      "json",
+                      "ejson"
+                    ],
+                    "description": "Set to \"ejson\" to receive BSON types as Extended JSON."
+                  },
+                  "pipeline": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    },
+                    "description": "Aggregation pipeline stages",
+                    "example": [
+                      {
+                        "$match": {
+                          "createdAt": {
+                            "$gte": {
+                              "$date": "2026-01-01T00:00:00Z"
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "$group": {
+                          "_id": "$status",
+                          "total": {
+                            "$sum": 1
+                          }
+                        }
+                      },
+                      {
+                        "$sort": {
+                          "total": -1
+                        }
+                      }
+                    ]
+                  },
+                  "options": {
+                    "type": "object",
+                    "description": "Driver options (projection, sort, skip, limit, collation, hint, maxTimeMS, ...).",
+                    "example": {
+                      "allowDiskUse": true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "results": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "truncated": {
+                      "type": "boolean"
+                    },
+                    "maxPayloadBytes": {
+                      "type": "integer"
+                    },
+                    "payloadBytes": {
+                      "type": "integer"
+                    },
+                    "scanned": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Refused by a server security setting",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Database or server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/updateOne": {
+      "post": {
+        "tags": [
+          "Advanced Queries"
+        ],
+        "summary": "Update one document",
+        "description": "updateOne with MongoDB defaults: upserts only when options.upsert is true. update may be an object or a pipeline array.",
+        "security": [
+          {},
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "dbName",
+                  "collectionName",
+                  "query",
+                  "update"
+                ],
+                "properties": {
+                  "mongoURI": {
+                    "type": "string",
+                    "description": "Connection string. May be omitted if the server sets DEFAULT_MONGO_URI.",
+                    "example": "mongodb+srv://user:password@cluster.mongodb.net"
+                  },
+                  "dbName": {
+                    "type": "string",
+                    "description": "Database name",
+                    "example": "testDB"
+                  },
+                  "collectionName": {
+                    "type": "string",
+                    "description": "Collection name",
+                    "example": "testCollection"
+                  },
+                  "responseFormat": {
+                    "type": "string",
+                    "enum": [
+                      "json",
+                      "ejson"
+                    ],
+                    "description": "Set to \"ejson\" to receive BSON types as Extended JSON."
+                  },
+                  "query": {
+                    "type": "object",
+                    "description": "Query filter. Supports Extended JSON ({\"$oid\": ...}) and \"RegExp(pattern, flags)\" strings.",
+                    "example": {
+                      "_id": {
+                        "$oid": "507f1f77bcf86cd799439011"
+                      }
+                    }
+                  },
+                  "update": {
+                    "description": "Update document with operators, or an aggregation pipeline array",
+                    "oneOf": [
+                      {
+                        "type": "object"
+                      },
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "object"
+                        }
+                      }
+                    ],
+                    "example": {
+                      "$set": {
+                        "status": "done"
+                      },
+                      "$inc": {
+                        "version": 1
+                      }
+                    }
+                  },
+                  "options": {
+                    "type": "object",
+                    "description": "Driver options (projection, sort, skip, limit, collation, hint, maxTimeMS, ...).",
+                    "example": {
+                      "upsert": false
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "matchedCount": {
+                      "type": "integer"
+                    },
+                    "modifiedCount": {
+                      "type": "integer"
+                    },
+                    "upsertedCount": {
+                      "type": "integer"
+                    },
+                    "upsertedId": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Refused by a server security setting",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Database or server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/replaceOne": {
+      "post": {
+        "tags": [
+          "Advanced Queries"
+        ],
+        "summary": "Replace one document",
+        "description": "Replaces the first matching document with replacement.",
+        "security": [
+          {},
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "dbName",
+                  "collectionName",
+                  "query",
+                  "replacement"
+                ],
+                "properties": {
+                  "mongoURI": {
+                    "type": "string",
+                    "description": "Connection string. May be omitted if the server sets DEFAULT_MONGO_URI.",
+                    "example": "mongodb+srv://user:password@cluster.mongodb.net"
+                  },
+                  "dbName": {
+                    "type": "string",
+                    "description": "Database name",
+                    "example": "testDB"
+                  },
+                  "collectionName": {
+                    "type": "string",
+                    "description": "Collection name",
+                    "example": "testCollection"
+                  },
+                  "responseFormat": {
+                    "type": "string",
+                    "enum": [
+                      "json",
+                      "ejson"
+                    ],
+                    "description": "Set to \"ejson\" to receive BSON types as Extended JSON."
+                  },
+                  "query": {
+                    "type": "object",
+                    "description": "Query filter. Supports Extended JSON ({\"$oid\": ...}) and \"RegExp(pattern, flags)\" strings.",
+                    "example": {
+                      "sku": "A1"
+                    }
+                  },
+                  "replacement": {
+                    "type": "object",
+                    "description": "New document (no update operators)",
+                    "example": {
+                      "sku": "A1",
+                      "qty": 10
+                    }
+                  },
+                  "options": {
+                    "type": "object",
+                    "description": "Driver options (projection, sort, skip, limit, collation, hint, maxTimeMS, ...).",
+                    "example": {
+                      "upsert": true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "matchedCount": {
+                      "type": "integer"
+                    },
+                    "modifiedCount": {
+                      "type": "integer"
+                    },
+                    "upsertedCount": {
+                      "type": "integer"
+                    },
+                    "upsertedId": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Refused by a server security setting",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Database or server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/findOneAndUpdate": {
+      "post": {
+        "tags": [
+          "Advanced Queries"
+        ],
+        "summary": "Find one document and update it",
+        "description": "Returns the document before the update, or after it when options.returnDocument is \"after\".",
+        "security": [
+          {},
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "dbName",
+                  "collectionName",
+                  "query",
+                  "update"
+                ],
+                "properties": {
+                  "mongoURI": {
+                    "type": "string",
+                    "description": "Connection string. May be omitted if the server sets DEFAULT_MONGO_URI.",
+                    "example": "mongodb+srv://user:password@cluster.mongodb.net"
+                  },
+                  "dbName": {
+                    "type": "string",
+                    "description": "Database name",
+                    "example": "testDB"
+                  },
+                  "collectionName": {
+                    "type": "string",
+                    "description": "Collection name",
+                    "example": "testCollection"
+                  },
+                  "responseFormat": {
+                    "type": "string",
+                    "enum": [
+                      "json",
+                      "ejson"
+                    ],
+                    "description": "Set to \"ejson\" to receive BSON types as Extended JSON."
+                  },
+                  "query": {
+                    "type": "object",
+                    "description": "Query filter. Supports Extended JSON ({\"$oid\": ...}) and \"RegExp(pattern, flags)\" strings.",
+                    "example": {
+                      "name": "counter"
+                    }
+                  },
+                  "update": {
+                    "description": "Update document with operators, or an aggregation pipeline array",
+                    "oneOf": [
+                      {
+                        "type": "object"
+                      },
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "object"
+                        }
+                      }
+                    ],
+                    "example": {
+                      "$inc": {
+                        "value": 1
+                      }
+                    }
+                  },
+                  "options": {
+                    "type": "object",
+                    "description": "Driver options (projection, sort, skip, limit, collation, hint, maxTimeMS, ...).",
+                    "example": {
+                      "returnDocument": "after",
+                      "upsert": true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "result": {
+                      "type": "object",
+                      "nullable": true,
+                      "description": "Matching document or null"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Refused by a server security setting",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Database or server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/findOneAndReplace": {
+      "post": {
+        "tags": [
+          "Advanced Queries"
+        ],
+        "summary": "Find one document and replace it",
+        "description": "Returns the document before the replacement, or after it when options.returnDocument is \"after\".",
+        "security": [
+          {},
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "dbName",
+                  "collectionName",
+                  "query",
+                  "replacement"
+                ],
+                "properties": {
+                  "mongoURI": {
+                    "type": "string",
+                    "description": "Connection string. May be omitted if the server sets DEFAULT_MONGO_URI.",
+                    "example": "mongodb+srv://user:password@cluster.mongodb.net"
+                  },
+                  "dbName": {
+                    "type": "string",
+                    "description": "Database name",
+                    "example": "testDB"
+                  },
+                  "collectionName": {
+                    "type": "string",
+                    "description": "Collection name",
+                    "example": "testCollection"
+                  },
+                  "responseFormat": {
+                    "type": "string",
+                    "enum": [
+                      "json",
+                      "ejson"
+                    ],
+                    "description": "Set to \"ejson\" to receive BSON types as Extended JSON."
+                  },
+                  "query": {
+                    "type": "object",
+                    "description": "Query filter. Supports Extended JSON ({\"$oid\": ...}) and \"RegExp(pattern, flags)\" strings.",
+                    "example": {
+                      "sku": "A1"
+                    }
+                  },
+                  "replacement": {
+                    "type": "object",
+                    "description": "New document (no update operators)",
+                    "example": {
+                      "sku": "A1",
+                      "qty": 0
+                    }
+                  },
+                  "options": {
+                    "type": "object",
+                    "description": "Driver options (projection, sort, skip, limit, collation, hint, maxTimeMS, ...).",
+                    "example": {
+                      "returnDocument": "after"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "result": {
+                      "type": "object",
+                      "nullable": true,
+                      "description": "Matching document or null"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Refused by a server security setting",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Database or server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/findOneAndDelete": {
+      "post": {
+        "tags": [
+          "Advanced Queries"
+        ],
+        "summary": "Find one document and delete it",
+        "description": "Returns the deleted document, or null.",
+        "security": [
+          {},
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "dbName",
+                  "collectionName",
+                  "query"
+                ],
+                "properties": {
+                  "mongoURI": {
+                    "type": "string",
+                    "description": "Connection string. May be omitted if the server sets DEFAULT_MONGO_URI.",
+                    "example": "mongodb+srv://user:password@cluster.mongodb.net"
+                  },
+                  "dbName": {
+                    "type": "string",
+                    "description": "Database name",
+                    "example": "testDB"
+                  },
+                  "collectionName": {
+                    "type": "string",
+                    "description": "Collection name",
+                    "example": "testCollection"
+                  },
+                  "responseFormat": {
+                    "type": "string",
+                    "enum": [
+                      "json",
+                      "ejson"
+                    ],
+                    "description": "Set to \"ejson\" to receive BSON types as Extended JSON."
+                  },
+                  "query": {
+                    "type": "object",
+                    "description": "Query filter. Supports Extended JSON ({\"$oid\": ...}) and \"RegExp(pattern, flags)\" strings.",
+                    "example": {
+                      "status": "queued"
+                    }
+                  },
+                  "options": {
+                    "type": "object",
+                    "description": "Driver options (projection, sort, skip, limit, collation, hint, maxTimeMS, ...).",
+                    "example": {
+                      "sort": {
+                        "createdAt": 1
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "result": {
+                      "type": "object",
+                      "nullable": true,
+                      "description": "Matching document or null"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Refused by a server security setting",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Database or server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bulkWrite": {
+      "post": {
+        "tags": [
+          "Advanced Queries"
+        ],
+        "summary": "Run several write operations",
+        "description": "Each operation is one of insertOne, updateOne, updateMany, replaceOne, deleteOne, deleteMany, using the MongoDB driver format.",
+        "security": [
+          {},
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "dbName",
+                  "collectionName",
+                  "operations"
+                ],
+                "properties": {
+                  "mongoURI": {
+                    "type": "string",
+                    "description": "Connection string. May be omitted if the server sets DEFAULT_MONGO_URI.",
+                    "example": "mongodb+srv://user:password@cluster.mongodb.net"
+                  },
+                  "dbName": {
+                    "type": "string",
+                    "description": "Database name",
+                    "example": "testDB"
+                  },
+                  "collectionName": {
+                    "type": "string",
+                    "description": "Collection name",
+                    "example": "testCollection"
+                  },
+                  "responseFormat": {
+                    "type": "string",
+                    "enum": [
+                      "json",
+                      "ejson"
+                    ],
+                    "description": "Set to \"ejson\" to receive BSON types as Extended JSON."
+                  },
+                  "operations": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    },
+                    "description": "Write operations",
+                    "example": [
+                      {
+                        "insertOne": {
+                          "document": {
+                            "sku": "A1",
+                            "qty": 5
+                          }
+                        }
+                      },
+                      {
+                        "updateOne": {
+                          "filter": {
+                            "sku": "B2"
+                          },
+                          "update": {
+                            "$inc": {
+                              "qty": -1
+                            }
+                          },
+                          "upsert": true
+                        }
+                      },
+                      {
+                        "deleteMany": {
+                          "filter": {
+                            "qty": 0
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "options": {
+                    "type": "object",
+                    "description": "Driver options (projection, sort, skip, limit, collation, hint, maxTimeMS, ...).",
+                    "example": {
+                      "ordered": false
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "insertedCount": {
+                      "type": "integer"
+                    },
+                    "matchedCount": {
+                      "type": "integer"
+                    },
+                    "modifiedCount": {
+                      "type": "integer"
+                    },
+                    "deletedCount": {
+                      "type": "integer"
+                    },
+                    "upsertedCount": {
+                      "type": "integer"
+                    },
+                    "insertedIds": {
+                      "type": "object"
+                    },
+                    "upsertedIds": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Refused by a server security setting",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Database or server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/insert": {
       "post": {
         "tags": [
@@ -706,7 +2550,7 @@
                     "description": "Query filter (must be a non-empty object)",
                     "minProperties": 1,
                     "example": {
-                      "_id": "123"
+                      "_id": { "$oid": "507f1f77bcf86cd799439011" }
                     }
                   },
                   "update": {
@@ -825,7 +2669,7 @@
                     "type": "object",
                     "description": "Query filter",
                     "example": {
-                      "_id": "123"
+                      "_id": { "$oid": "507f1f77bcf86cd799439011" }
                     }
                   },
                   "multi": {
@@ -1054,6 +2898,15 @@
             "description": "Server error"
           }
         }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Api-Key"
       }
     }
   }

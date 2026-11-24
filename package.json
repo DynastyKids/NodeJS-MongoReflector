@@ -1,11 +1,13 @@
 {
   "name": "mongoreflector",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node test/smoke.test.js",
-    "test:smoke": "node test/smoke.test.js",
+    "test": "node --test test/*.test.js",
+    "test:smoke": "node --test test/smoke.test.js",
+    "test:unit": "node --test test/unit.test.js",
+    "test:integration": "node --test test/compat.test.js test/features.test.js",
     "dev": "node server.js"
   },
   "keywords": [],
@@ -16,9 +18,10 @@
     "cors": "^2.8.5",
     "express": "^4.21.0",
     "mongodb": "^7.0.0",
-    "swagger-ui-express": "^5.0.0"
+    "swagger-ui-express": "^5.0.0",
+    "mongodb-connection-string-url": "^7.0.0"
   },
   "devDependencies": {
-    "wrangler": "^3.87.0"
+    "wrangler": "^4.158.0"
   }
 }

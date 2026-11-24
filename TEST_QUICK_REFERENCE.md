@@ -3,13 +3,13 @@
 ## Local Testing Commands
 
 ```bash
-# Run smoke tests
+# Run all tests (they start the server themselves)
 npm test
 
-# Alternative
-npm run test:smoke
+# Include database tests
+MONGO_TEST_URI=mongodb://127.0.0.1:27017 npm test
 
-# Start server (required for tests)
+# Start the server
 npm start
 
 # Run on custom port
