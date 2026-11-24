@@ -14,6 +14,9 @@ A lightweight MongoDB proxy API server that enables frontend-only applications t
 - **Production Ready**: Deployed on Vercel/Render with CORS enabled
 - **TimeSeries Support**: Special endpoints for MongoDB TimeSeries collections
 - **Query Safety**: Built-in RegExp sanitization and parameter validation
+- **Advanced Queries**: aggregation pipelines, `findOne`, `count`, `bulkWrite`, `findOneAnd*`, pipeline updates, `arrayFilters`
+- **Real BSON Types**: ObjectId, Date, Decimal128 and more via MongoDB Extended JSON (`{"$oid": "..."}`)
+- **Security Controls**: host allowlist, private-network blocking, per-user access keys with expiry, rate limit, read-only mode, server-held connection string (all opt-in)
 - **Interactive Documentation**: Swagger UI with complete endpoint examples
 
 ## 📋 Table of Contents
@@ -42,16 +45,15 @@ cd NodeJS-MongoReflector
 npm install
 ```
 
-### 3. Create a `.env` File
+### 3. Create a `.env` File (optional)
 
-Before running the server, add a `.env` file at the repository root (the file is already ignored by git) and populate it with your environment variables:
+Copy the example file and edit it (`.env` is ignored by git):
 
 ```bash
-PORT=3000
-MONGO_URI=mongodb+srv://user:password@cluster.mongodb.net
+cp .env.example .env
 ```
 
-Replace the placeholder URI with your real connection string and save the file.
+Every setting is optional. See [Configuration](#configuration) for what each one does.
 
 ### 4. Start the Server
 
@@ -91,27 +93,64 @@ npm install
 
 ### Environment Variables
 
-```bash
-# Port configuration (default: 3000)
-PORT=3000
+Set them in `.env` (see `.env.example`) or in your hosting platform. All security settings are **off by default**, so an existing deployment behaves the same until you turn them on.
 
-# Optional: Custom MongoDB connection (used in deployment)
-MONGO_URI=mongodb+srv://user:password@cluster.mongodb.net
+| Variable | Default | Purpose |
+|---|---|---|
+| `PORT` | `3000` | HTTP port |
+| `ALLOW_PUBLIC_USE` | `true` | `false` = only users in `ALLOWED_KEYPAIRS` with an unexpired key may call POST endpoints. `true` or unset = anyone. Any other value counts as `false`. |
+| `ALLOWED_KEYPAIRS` | – | Users and keys, see [Access keys](#access-keys) |
+| `ALLOWED_ORIGINS` | – (any) | Comma-separated CORS origins allowed to call the server from a browser |
+| `RATE_LIMIT_PER_MINUTE` | `0` (off) | POST requests allowed per client IP per minute |
+| `TRUST_PROXY` | – | Express `trust proxy` value (e.g. `1` behind Vercel / Render / Nginx) so the rate limit sees the real client IP |
+| `READ_ONLY` | `false` | Reject every write and delete endpoint |
+| `DEFAULT_MONGO_URI` | – | Connection string used when a request has no `mongoURI`. Keeps database credentials out of frontend code. |
+| `ALLOW_CLIENT_MONGO_URI` | `true` | `false` = reject requests that send their own `mongoURI` (use with `DEFAULT_MONGO_URI`) |
+| `ALLOWED_MONGO_HOSTS` | – (any) | Hosts a request's `mongoURI` may point to, e.g. `*.mongodb.net,db.example.com` |
+| `BLOCK_PRIVATE_HOSTS` | `false` | Refuse hosts that resolve to private, loopback, link-local or cloud-metadata addresses |
+| `ALLOW_UNSAFE_URI_OPTIONS` | `false` | Allow URI options that use the server's own files or identity (`tlsCAFile`, `tlsCertificateKeyFile`, `proxyHost`, `authMechanism=MONGODB-AWS / MONGODB-OIDC / GSSAPI`) |
+| `ALLOW_SERVER_SIDE_JS` | `false` | Allow `$where`, `$function`, `$accumulator` |
+| `ALLOW_AGGREGATE_WRITES` | `false` | Allow `$out` / `$merge` stages in `/aggregate` |
+| `EJSON_INPUT` | `true` | Convert Extended JSON type wrappers such as `{"$oid": "..."}` |
+| `MAX_TIME_MS` | `60000` | Server-side time limit for read operations (`0` = none). A smaller `options.maxTimeMS` from the client is kept. |
+| `MAX_FIND_RESPONSE_BYTES` | `33554432` | Response size cap for list results (32 MB) |
+| `MAX_PAGINATE_LENGTH` | `500` | Largest page size for `/paginatefind` |
+| `MAX_DISTINCT_VALUES` | `10000` | Most values returned by `/distinct_field` |
+| `BODY_LIMIT` | `1mb` | Largest request body |
+| `SERVER_SELECTION_TIMEOUT_MS` | `10000` | Longest wait to reach the database (a smaller value in the URI is kept) |
+| `MAX_CACHED_CLIENTS` | `50` | Most distinct connection strings kept open at once |
+| `CLIENT_IDLE_TIMEOUT_MS` | `600000` | Close a cached connection after it is idle this long |
+
+> `MONGO_URI`, shown in older versions of this README, is **not** read by the server. Use `DEFAULT_MONGO_URI`.
+
+### Access keys
+
+With `ALLOW_PUBLIC_USE=false`, every POST request must carry a key from `ALLOWED_KEYPAIRS` that has not expired. GET pages (docs, `/test`) stay open.
+
+```bash
+ALLOW_PUBLIC_USE=false
+ALLOWED_KEYPAIRS=[
+    {user:"warehouse_syd",token:"a-long-random-token",expiry:2524651200000},
+    {user:"warehouse_mel",token:"another-random-token",expiry:1798761600},
+]
 ```
 
-### Server Configuration
+- `expiry` is a Unix epoch time, in milliseconds or seconds (values below 100000000000 are read as seconds). It is checked on every request, so a key stops working as soon as it expires. Entries without a valid `expiry`, or with a `token` shorter than 8 characters, are skipped with a warning at startup.
+- The list may span several lines in `.env`. On hosting dashboards that only take one line, use JSON: `[{"user":"a","token":"...","expiry":2524651200000}]`.
+- Changes to `.env` take effect after a restart. Tokens are never written to the logs; the startup log shows how many keys are active and warns about keys expiring within 7 days.
 
-The server automatically configures MongoDB connections with:
+The client sends the key in a header; the request body is unchanged:
 
 ```javascript
-{
-  maxPoolSize: 10,                    // Connection pool size
-  serverSelectionTimeoutMS: 5000,     // Connection timeout
-  serverApi: ServerApiVersion.v1,     // Enforced API version
-  strict: true,
-  deprecationErrors: true
-}
+fetch('https://your-reflector.example.com/find', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json', 'X-Api-Key': 'a-long-random-token' },
+  // or: 'Authorization': 'Bearer a-long-random-token'
+  body: JSON.stringify({ mongoURI, dbName: 'shop', collectionName: 'orders', query: {} })
+});
 ```
+
+Refused requests get `401` with `message` "API key required...", "Invalid API key." or "API key has expired.".
 
 ## 🔌 API Endpoints
 
@@ -278,7 +317,7 @@ Update documents (upsert enabled by default)
   "mongoURI": "mongodb+srv://user:password@cluster.mongodb.net",
   "dbName": "testDB",
   "collectionName": "testCollection",
-  "query": { "_id": "507f1f77bcf86cd799439011" },
+  "query": { "_id": { "$oid": "507f1f77bcf86cd799439011" } },
   "update": { "$set": { "status": "updated", "modified": true } },
   "options": { "upsert": true }
 }
@@ -396,63 +435,102 @@ Delete from TimeSeries collection (MongoDB 6 compatibility - one-by-one deletion
 
 ---
 
+### Advanced Queries
+
+These endpoints take the same `mongoURI`, `dbName`, `collectionName` fields as the ones above and return `{ "acknowledged": true, ... }`.
+
+| Endpoint | Request fields | Response fields |
+|---|---|---|
+| `POST /findOne` | `query`, `options` | `result` (document or `null`) |
+| `POST /count` | `query`, `options`, `estimated` | `count` |
+| `POST /aggregate` | `pipeline`, `options` | `results`, `truncated`, `payloadBytes`, ... (same as `/find`) |
+| `POST /updateOne` | `query`, `update`, `options` | same as `/update` — upserts only when `options.upsert` is `true` |
+| `POST /replaceOne` | `query`, `replacement`, `options` | same as `/update` |
+| `POST /findOneAndUpdate` | `query`, `update`, `options` | `result` |
+| `POST /findOneAndReplace` | `query`, `replacement`, `options` | `result` |
+| `POST /findOneAndDelete` | `query`, `options` | `result` |
+| `POST /bulkWrite` | `operations`, `options` | `insertedCount`, `matchedCount`, `modifiedCount`, `deletedCount`, `upsertedCount`, `insertedIds`, `upsertedIds` |
+
+`/update`, `/updateOne` and `/findOneAndUpdate` also accept an aggregation pipeline (array) as `update`, and `options.arrayFilters`. `findOneAnd*` return the document before the change unless `options.returnDocument` is `"after"`.
+
+**Aggregation**:
+```json
+{
+  "mongoURI": "mongodb+srv://user:password@cluster.mongodb.net",
+  "dbName": "shop",
+  "collectionName": "orders",
+  "pipeline": [
+    { "$match": { "createdAt": { "$gte": { "$date": "2026-01-01T00:00:00Z" } } } },
+    { "$group": { "_id": "$customerId", "total": { "$sum": "$amount" } } },
+    { "$lookup": { "from": "customers", "localField": "_id", "foreignField": "_id", "as": "customer" } },
+    { "$sort": { "total": -1 } },
+    { "$limit": 10 }
+  ],
+  "options": { "allowDiskUse": true }
+}
+```
+
+**Bulk write**:
+```json
+{
+  "mongoURI": "...", "dbName": "shop", "collectionName": "products",
+  "operations": [
+    { "insertOne": { "document": { "sku": "A1", "qty": 5 } } },
+    { "updateOne": { "filter": { "sku": "B2" }, "update": { "$inc": { "qty": -1 } }, "upsert": true } },
+    { "deleteMany": { "filter": { "qty": 0 } } }
+  ],
+  "options": { "ordered": false }
+}
+```
+
+#### Extended JSON types
+
+JSON has no ObjectId or Date. Wrap the value in MongoDB Extended JSON and the server converts it, in queries, documents, updates, pipelines and options:
+
+```json
+{
+  "query": {
+    "_id": { "$oid": "507f1f77bcf86cd799439011" },
+    "createdAt": { "$gte": { "$date": "2026-01-01T00:00:00Z" } },
+    "price": { "$lt": { "$numberDecimal": "9.99" } }
+  }
+}
+```
+
+Supported: `$oid`, `$date`, `$numberDecimal`, `$numberLong`, `$numberInt`, `$numberDouble`, `$binary`, `$uuid`, `$timestamp`, `$regularExpression`, `$minKey`, `$maxKey`. Only objects with exactly one of these keys are converted; query operators such as `$regex` / `$options` are left as they are.
+
+Add `"responseFormat": "ejson"` to any request to get results back in Extended JSON (`{"$oid": "..."}`, `{"$date": "..."}`). Without it, responses look exactly as before (ObjectId and Date become plain strings).
+
+#### Regular expressions
+
+`"RegExp(pattern, flags)"` strings work at any depth of a query (inside `$or`, `$and`, `$in`, ...) and the pattern may contain commas, e.g. `"RegExp(^a{1,3}, i)"`. Native `{ "$regex": "^a", "$options": "i" }` also works.
+
+---
+
 ## 🏗️ Architecture
+
+```
+server.js            routes
+lib/config.js        environment variables (.env is loaded first)
+lib/mongo-pool.js    shared MongoClient cache
+lib/uri-guard.js     checks client-supplied connection strings
+lib/query.js         Extended JSON / RegExp parsing, blocked operators
+lib/errors.js        HTTP errors, hides credentials in messages
+```
 
 ### Connection Pooling
 
-The server caches MongoDB connections in memory using a `Map` to avoid reconnection overhead:
-
-```javascript
-const clientCache = new Map();
-
-async function getMongoCollection(mongoURI, dbName, collectionName) {
-  if (clientCache.has(mongoURI)) {
-    client = clientCache.get(mongoURI);
-  } else {
-    client = new MongoClient(mongoURI, { /* config */ });
-    await client.connect();
-    clientCache.set(mongoURI, client);
-  }
-  return client.db(dbName).collection(collectionName);
-}
-```
-
-### Query Safety
-
-Built-in query sanitization converts RegExp strings to proper objects:
-
-```javascript
-function sanitizeQuery(query) {
-  // Converts "RegExp(...)" strings to RegExp objects
-  for (const key in safe) {
-    if (typeof safe[key] === 'string' && safe[key].startsWith('RegExp(')) {
-      const match = safe[key].match(/^RegExp\((.*)\)$/);
-      if (match) {
-        const [pattern, flags] = match[1].split(',').map(s => s.trim());
-        safe[key] = new RegExp(pattern, flags || '');
-      }
-    }
-  }
-  return safe;
-}
-```
+One `MongoClient` per connection string is shared by every endpoint, reads and writes. Concurrent requests share a single connect; failed connections are never cached; idle clients close after `CLIENT_IDLE_TIMEOUT_MS`. At most `MAX_CACHED_CLIENTS` are kept: when all of them are busy, a new connection string gets `503` instead of opening ever more connections.
 
 ### Error Handling
 
-Global async error handler with decorator pattern:
+Every error is JSON:
 
-```javascript
-const asyncHandler = fn => (req, res, next) => 
-  Promise.resolve(fn(req, res, next)).catch(next);
-
-app.use((err, req, res, next) => {
-  console.error("API Error:", err);
-  res.status(500).json({
-    acknowledged: false,
-    message: err.message
-  });
-});
+```json
+{ "acknowledged": false, "message": "E11000 duplicate key error ...", "code": 11000, "status": "Server error", "timestamp": "2026-01-18T10:30:00.000Z" }
 ```
+
+Invalid input → `400`, missing, invalid or expired access key → `401`, refused by a security setting → `403`, too many requests → `429`, connection cache full → `503`, database errors → `500`. Stack traces, file paths and connection-string passwords are never returned.
 
 ## 🚀 Deployment
 
@@ -582,41 +660,46 @@ export function UserForm() {
 }
 ```
 
-## 🔒 Security Considerations
+## 🔒 Security
 
-> ⚠️ **Warning**: This API is designed for **development and internal use**. Do not expose to the public internet without authentication and authorization.
+Whoever sends a `mongoURI` already holds that database's credentials, so the database itself is protected by the database user's permissions. The main risks are to **the server running MongoReflector** and to **credentials shipped in frontend code**.
 
-### Recommendations
+### On by default
 
-1. **Authentication**: Add JWT or OAuth2 middleware in production
-2. **Rate Limiting**: Implement request rate limiting
-3. **Validation**: Add MongoDB query parameter validation
-4. **Firewall**: Restrict MongoDB access by IP whitelist
-5. **HTTPS**: Always use HTTPS in production
-6. **Environment Variables**: Never hardcode MongoDB credentials
+- Connection strings with options that use the server's own files or identity are refused: `tlsCAFile`, `tlsCertificateKeyFile`, `proxyHost`, `authMechanism=MONGODB-AWS | MONGODB-OIDC | GSSAPI`. Otherwise a caller could make the server read its local files, or sign in somewhere with the server's cloud credentials.
+- `$where`, `$function`, `$accumulator` (JavaScript on the database server) are refused; `$out` / `$merge` are refused in `/aggregate`.
+- Errors never contain stack traces, file paths or connection-string passwords; request data is not written to logs.
+- Body size, read time (`MAX_TIME_MS`) and number of open connections are limited.
 
-### Example with Authentication Middleware
+### Recommended for a public deployment
 
-```javascript
-const jwt = require('jsonwebtoken');
+1. **Restrict hosts**: `ALLOWED_MONGO_HOSTS=*.mongodb.net` (or at least `BLOCK_PRIVATE_HOSTS=true`). Without it, anyone can use the server to probe hosts on its internal network.
+2. **Keep credentials off the frontend**: set `DEFAULT_MONGO_URI` and `ALLOW_CLIENT_MONGO_URI=false`; requests then leave out `mongoURI`. Combine with `ALLOW_PUBLIC_USE=false`, or anyone can use that database.
+3. **Least-privilege database user**: the user's roles are the real access control. Limit it to the databases it needs, read-only where possible (and `READ_ONLY=true`).
+4. **Rate limit and access keys**: `RATE_LIMIT_PER_MINUTE` + `TRUST_PROXY`; `ALLOW_PUBLIC_USE=false` with `ALLOWED_KEYPAIRS` (one key per user, with an expiry, so a single user can be cut off). A key inside a public web page can be read by anyone; it stops casual abuse, not a determined attacker.
+5. **`ALLOWED_ORIGINS`** limits which websites can call the server from a browser. It does not stop scripts or curl.
+6. Serve over HTTPS only.
 
-app.use((req, res, next) => {
-  if (req.path === '/' || req.path === '/api') {
-    return next();
-  }
-  
-  const token = req.headers.authorization?.split(' ')[1];
-  if (!token) return res.status(401).json({ message: 'Unauthorized' });
-  
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
-    next();
-  } catch (err) {
-    res.status(403).json({ message: 'Invalid token' });
-  }
-});
-```
+> On Vercel, `vercel.json` also adds CORS headers to every response. If you set `ALLOWED_ORIGINS`, edit those headers too.
+
+Known limits: `BLOCK_PRIVATE_HOSTS` checks DNS when a connection is first opened, so DNS rebinding can get around it — prefer `ALLOWED_MONGO_HOSTS`. The rate limit is kept in memory per server instance.
+
+## 🔄 Changes in 0.3.0
+
+Request formats are unchanged. These responses or behaviours changed:
+
+- Errors are always JSON (some endpoints used to return an HTML page with a stack trace). `message` is now a string (it used to be a serialized error object), with `code` / `codeName` alongside. Bad input returns `400` instead of `500`.
+- `$where` / `$function` / `$accumulator` are refused unless `ALLOW_SERVER_SIDE_JS=true`.
+- Connection strings using server files or server identity are refused unless `ALLOW_UNSAFE_URI_OPTIONS=true`.
+- `/paginatefind`: an `$or` in `query` is kept when searching (it was overwritten); a search that is not a valid regex is matched as plain text (was `500`); `length: -1` returns the largest page (was 1 row); every `order` entry is used.
+- `/delete`, `/deleteTimeseries`: `multi: "false"` / `"0"` now mean false (any non-empty string used to mean true); `query` must be an object.
+- `/deleteTimeseries` uses `timeField.name` (it was always `timestamp`, still the default). `/deleteTimeseries_legacy` now applies the `timeField` range (it was ignored).
+- `/insertTimeSeries`: `timeField` is optional, `documents` may be an array, a missing `timeField.val` means "now".
+- `/datatables_paginatefind`, `/timeseries_insert`, `/timeseries_delete` answer directly instead of with a 307 redirect. `/delete_timeseries` and `/delete_timeseries_legacy` (named in this README) now exist.
+- `"RegExp(...)"` strings are converted anywhere in a query (previously top-level fields only).
+- Reads no longer use Stable API *strict* mode (this only removes errors) and have a 60 s limit (`MAX_TIME_MS`).
+- Writes reuse cached connections; the wait to reach the database is at most 10 s (previously 30 s for writes).
+- `MAX_*` values in `.env` now take effect (they used to be read before `.env` was loaded).
 
 ## 🐛 Troubleshooting
 

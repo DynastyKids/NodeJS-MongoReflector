@@ -1,8 +1,8 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "description": "这是一个MongoDB后端反射器服务器。支持仅前端应用程序通过PAAS平台部署自己的后端来传输他们的数据库数据。",
-    "version": "1.0.1",
+    "description": "这是一个MongoDB后端反射器服务器。支持仅前端应用程序通过PAAS平台部署自己的后端来传输他们的数据库数据。\n\n**Extended JSON**：在 query、documents、update、pipeline 或 options 中任意位置使用 {\"$oid\": \"...\"}、{\"$date\": \"...\"}、{\"$numberDecimal\": \"...\"} 等发送真实 BSON 类型。在请求中加 \"responseFormat\": \"ejson\" 可让结果以 Extended JSON 返回。\n\n**访问密钥**：如果服务器设置了 ALLOW_PUBLIC_USE=false，所有 POST 请求需在 X-Api-Key 头（或 Authorization: Bearer <key>）中带上 ALLOWED_KEYPAIRS 里未过期的 key，否则返回 401。\n\n**错误**：一律为 JSON：{ acknowledged: false, message, code?, codeName?, status?, timestamp }。",
+    "version": "1.1.0",
     "title": "MongoDB 中间件连接器",
     "license": {
       "name": "Apache 2.0",
@@ -30,6 +30,10 @@
     {
       "name": "删除操作",
       "description": "删除MongoDB集合中的数据"
+    },
+    {
+      "name": "高级查询",
+      "description": "聚合、计数、单文档操作与批量写入"
     },
     {
       "name": "时间序列操作",
@@ -466,6 +470,1846 @@
         }
       }
     },
+    "/findOne": {
+      "post": {
+        "tags": [
+          "高级查询"
+        ],
+        "summary": "查询单个文档",
+        "description": "返回第一个匹配的文档，没有则返回 null。",
+        "security": [
+          {},
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "dbName",
+                  "collectionName"
+                ],
+                "properties": {
+                  "mongoURI": {
+                    "type": "string",
+                    "description": "连接串。服务器设置了 DEFAULT_MONGO_URI 时可省略。",
+                    "example": "mongodb+srv://user:password@cluster.mongodb.net"
+                  },
+                  "dbName": {
+                    "type": "string",
+                    "description": "数据库名",
+                    "example": "testDB"
+                  },
+                  "collectionName": {
+                    "type": "string",
+                    "description": "集合名",
+                    "example": "testCollection"
+                  },
+                  "responseFormat": {
+                    "type": "string",
+                    "enum": [
+                      "json",
+                      "ejson"
+                    ],
+                    "description": "设为 \"ejson\" 时以 Extended JSON 返回 BSON 类型。"
+                  },
+                  "query": {
+                    "type": "object",
+                    "description": "查询条件。支持 Extended JSON（{\"$oid\": ...}）和 \"RegExp(pattern, flags)\" 字符串。",
+                    "example": {
+                      "_id": {
+                        "$oid": "507f1f77bcf86cd799439011"
+                      }
+                    }
+                  },
+                  "options": {
+                    "type": "object",
+                    "description": "驱动选项（projection、sort、skip、limit、collation、hint、maxTimeMS 等）。",
+                    "example": {
+                      "projection": {
+                        "name": 1
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "result": {
+                      "type": "object",
+                      "nullable": true,
+                      "description": "匹配的文档或 null"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "被服务器安全设置拒绝",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "数据库或服务器错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/count": {
+      "post": {
+        "tags": [
+          "高级查询"
+        ],
+        "summary": "统计文档数量",
+        "description": "执行 countDocuments(query)；estimated 为 true 时执行 estimatedDocumentCount()。",
+        "security": [
+          {},
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "dbName",
+                  "collectionName"
+                ],
+                "properties": {
+                  "mongoURI": {
+                    "type": "string",
+                    "description": "连接串。服务器设置了 DEFAULT_MONGO_URI 时可省略。",
+                    "example": "mongodb+srv://user:password@cluster.mongodb.net"
+                  },
+                  "dbName": {
+                    "type": "string",
+                    "description": "数据库名",
+                    "example": "testDB"
+                  },
+                  "collectionName": {
+                    "type": "string",
+                    "description": "集合名",
+                    "example": "testCollection"
+                  },
+                  "responseFormat": {
+                    "type": "string",
+                    "enum": [
+                      "json",
+                      "ejson"
+                    ],
+                    "description": "设为 \"ejson\" 时以 Extended JSON 返回 BSON 类型。"
+                  },
+                  "query": {
+                    "type": "object",
+                    "description": "查询条件。支持 Extended JSON（{\"$oid\": ...}）和 \"RegExp(pattern, flags)\" 字符串。",
+                    "example": {
+                      "status": "active"
+                    }
+                  },
+                  "estimated": {
+                    "type": "boolean",
+                    "description": "使用基于集合元数据的快速计数（忽略 query）。",
+                    "example": false
+                  },
+                  "options": {
+                    "type": "object",
+                    "description": "驱动选项（projection、sort、skip、limit、collation、hint、maxTimeMS 等）。"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "count": {
+                      "type": "integer",
+                      "description": "文档数量",
+                      "example": 42
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "被服务器安全设置拒绝",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "数据库或服务器错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/aggregate": {
+      "post": {
+        "tags": [
+          "高级查询"
+        ],
+        "summary": "执行聚合管道",
+        "description": "结果与 /find 一样受响应大小限制。除非服务器设置 ALLOW_AGGREGATE_WRITES=true，否则拒绝 $out 和 $merge；除非设置 ALLOW_SERVER_SIDE_JS=true，否则拒绝 $where、$function、$accumulator。",
+        "security": [
+          {},
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "dbName",
+                  "collectionName",
+                  "pipeline"
+                ],
+                "properties": {
+                  "mongoURI": {
+                    "type": "string",
+                    "description": "连接串。服务器设置了 DEFAULT_MONGO_URI 时可省略。",
+                    "example": "mongodb+srv://user:password@cluster.mongodb.net"
+                  },
+                  "dbName": {
+                    "type": "string",
+                    "description": "数据库名",
+                    "example": "testDB"
+                  },
+                  "collectionName": {
+                    "type": "string",
+                    "description": "集合名",
+                    "example": "testCollection"
+                  },
+                  "responseFormat": {
+                    "type": "string",
+                    "enum": [
+                      "json",
+                      "ejson"
+                    ],
+                    "description": "设为 \"ejson\" 时以 Extended JSON 返回 BSON 类型。"
+                  },
+                  "pipeline": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    },
+                    "description": "聚合管道阶段",
+                    "example": [
+                      {
+                        "$match": {
+                          "createdAt": {
+                            "$gte": {
+                              "$date": "2026-01-01T00:00:00Z"
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "$group": {
+                          "_id": "$status",
+                          "total": {
+                            "$sum": 1
+                          }
+                        }
+                      },
+                      {
+                        "$sort": {
+                          "total": -1
+                        }
+                      }
+                    ]
+                  },
+                  "options": {
+                    "type": "object",
+                    "description": "驱动选项（projection、sort、skip、limit、collation、hint、maxTimeMS 等）。",
+                    "example": {
+                      "allowDiskUse": true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "results": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "truncated": {
+                      "type": "boolean"
+                    },
+                    "maxPayloadBytes": {
+                      "type": "integer"
+                    },
+                    "payloadBytes": {
+                      "type": "integer"
+                    },
+                    "scanned": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "被服务器安全设置拒绝",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "数据库或服务器错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/updateOne": {
+      "post": {
+        "tags": [
+          "高级查询"
+        ],
+        "summary": "更新单个文档",
+        "description": "按 MongoDB 默认行为执行 updateOne：仅当 options.upsert 为 true 时 upsert。update 可以是对象或管道数组。",
+        "security": [
+          {},
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "dbName",
+                  "collectionName",
+                  "query",
+                  "update"
+                ],
+                "properties": {
+                  "mongoURI": {
+                    "type": "string",
+                    "description": "连接串。服务器设置了 DEFAULT_MONGO_URI 时可省略。",
+                    "example": "mongodb+srv://user:password@cluster.mongodb.net"
+                  },
+                  "dbName": {
+                    "type": "string",
+                    "description": "数据库名",
+                    "example": "testDB"
+                  },
+                  "collectionName": {
+                    "type": "string",
+                    "description": "集合名",
+                    "example": "testCollection"
+                  },
+                  "responseFormat": {
+                    "type": "string",
+                    "enum": [
+                      "json",
+                      "ejson"
+                    ],
+                    "description": "设为 \"ejson\" 时以 Extended JSON 返回 BSON 类型。"
+                  },
+                  "query": {
+                    "type": "object",
+                    "description": "查询条件。支持 Extended JSON（{\"$oid\": ...}）和 \"RegExp(pattern, flags)\" 字符串。",
+                    "example": {
+                      "_id": {
+                        "$oid": "507f1f77bcf86cd799439011"
+                      }
+                    }
+                  },
+                  "update": {
+                    "description": "包含更新操作符的对象，或聚合管道数组",
+                    "oneOf": [
+                      {
+                        "type": "object"
+                      },
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "object"
+                        }
+                      }
+                    ],
+                    "example": {
+                      "$set": {
+                        "status": "done"
+                      },
+                      "$inc": {
+                        "version": 1
+                      }
+                    }
+                  },
+                  "options": {
+                    "type": "object",
+                    "description": "驱动选项（projection、sort、skip、limit、collation、hint、maxTimeMS 等）。",
+                    "example": {
+                      "upsert": false
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "matchedCount": {
+                      "type": "integer"
+                    },
+                    "modifiedCount": {
+                      "type": "integer"
+                    },
+                    "upsertedCount": {
+                      "type": "integer"
+                    },
+                    "upsertedId": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "被服务器安全设置拒绝",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "数据库或服务器错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/replaceOne": {
+      "post": {
+        "tags": [
+          "高级查询"
+        ],
+        "summary": "替换单个文档",
+        "description": "用 replacement 替换第一个匹配的文档。",
+        "security": [
+          {},
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "dbName",
+                  "collectionName",
+                  "query",
+                  "replacement"
+                ],
+                "properties": {
+                  "mongoURI": {
+                    "type": "string",
+                    "description": "连接串。服务器设置了 DEFAULT_MONGO_URI 时可省略。",
+                    "example": "mongodb+srv://user:password@cluster.mongodb.net"
+                  },
+                  "dbName": {
+                    "type": "string",
+                    "description": "数据库名",
+                    "example": "testDB"
+                  },
+                  "collectionName": {
+                    "type": "string",
+                    "description": "集合名",
+                    "example": "testCollection"
+                  },
+                  "responseFormat": {
+                    "type": "string",
+                    "enum": [
+                      "json",
+                      "ejson"
+                    ],
+                    "description": "设为 \"ejson\" 时以 Extended JSON 返回 BSON 类型。"
+                  },
+                  "query": {
+                    "type": "object",
+                    "description": "查询条件。支持 Extended JSON（{\"$oid\": ...}）和 \"RegExp(pattern, flags)\" 字符串。",
+                    "example": {
+                      "sku": "A1"
+                    }
+                  },
+                  "replacement": {
+                    "type": "object",
+                    "description": "新文档（不能包含更新操作符）",
+                    "example": {
+                      "sku": "A1",
+                      "qty": 10
+                    }
+                  },
+                  "options": {
+                    "type": "object",
+                    "description": "驱动选项（projection、sort、skip、limit、collation、hint、maxTimeMS 等）。",
+                    "example": {
+                      "upsert": true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "matchedCount": {
+                      "type": "integer"
+                    },
+                    "modifiedCount": {
+                      "type": "integer"
+                    },
+                    "upsertedCount": {
+                      "type": "integer"
+                    },
+                    "upsertedId": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "被服务器安全设置拒绝",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "数据库或服务器错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/findOneAndUpdate": {
+      "post": {
+        "tags": [
+          "高级查询"
+        ],
+        "summary": "查找并更新单个文档",
+        "description": "默认返回更新前的文档，options.returnDocument 为 \"after\" 时返回更新后的文档。",
+        "security": [
+          {},
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "dbName",
+                  "collectionName",
+                  "query",
+                  "update"
+                ],
+                "properties": {
+                  "mongoURI": {
+                    "type": "string",
+                    "description": "连接串。服务器设置了 DEFAULT_MONGO_URI 时可省略。",
+                    "example": "mongodb+srv://user:password@cluster.mongodb.net"
+                  },
+                  "dbName": {
+                    "type": "string",
+                    "description": "数据库名",
+                    "example": "testDB"
+                  },
+                  "collectionName": {
+                    "type": "string",
+                    "description": "集合名",
+                    "example": "testCollection"
+                  },
+                  "responseFormat": {
+                    "type": "string",
+                    "enum": [
+                      "json",
+                      "ejson"
+                    ],
+                    "description": "设为 \"ejson\" 时以 Extended JSON 返回 BSON 类型。"
+                  },
+                  "query": {
+                    "type": "object",
+                    "description": "查询条件。支持 Extended JSON（{\"$oid\": ...}）和 \"RegExp(pattern, flags)\" 字符串。",
+                    "example": {
+                      "name": "counter"
+                    }
+                  },
+                  "update": {
+                    "description": "包含更新操作符的对象，或聚合管道数组",
+                    "oneOf": [
+                      {
+                        "type": "object"
+                      },
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "object"
+                        }
+                      }
+                    ],
+                    "example": {
+                      "$inc": {
+                        "value": 1
+                      }
+                    }
+                  },
+                  "options": {
+                    "type": "object",
+                    "description": "驱动选项（projection、sort、skip、limit、collation、hint、maxTimeMS 等）。",
+                    "example": {
+                      "returnDocument": "after",
+                      "upsert": true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "result": {
+                      "type": "object",
+                      "nullable": true,
+                      "description": "匹配的文档或 null"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "被服务器安全设置拒绝",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "数据库或服务器错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/findOneAndReplace": {
+      "post": {
+        "tags": [
+          "高级查询"
+        ],
+        "summary": "查找并替换单个文档",
+        "description": "默认返回替换前的文档，options.returnDocument 为 \"after\" 时返回替换后的文档。",
+        "security": [
+          {},
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "dbName",
+                  "collectionName",
+                  "query",
+                  "replacement"
+                ],
+                "properties": {
+                  "mongoURI": {
+                    "type": "string",
+                    "description": "连接串。服务器设置了 DEFAULT_MONGO_URI 时可省略。",
+                    "example": "mongodb+srv://user:password@cluster.mongodb.net"
+                  },
+                  "dbName": {
+                    "type": "string",
+                    "description": "数据库名",
+                    "example": "testDB"
+                  },
+                  "collectionName": {
+                    "type": "string",
+                    "description": "集合名",
+                    "example": "testCollection"
+                  },
+                  "responseFormat": {
+                    "type": "string",
+                    "enum": [
+                      "json",
+                      "ejson"
+                    ],
+                    "description": "设为 \"ejson\" 时以 Extended JSON 返回 BSON 类型。"
+                  },
+                  "query": {
+                    "type": "object",
+                    "description": "查询条件。支持 Extended JSON（{\"$oid\": ...}）和 \"RegExp(pattern, flags)\" 字符串。",
+                    "example": {
+                      "sku": "A1"
+                    }
+                  },
+                  "replacement": {
+                    "type": "object",
+                    "description": "新文档（不能包含更新操作符）",
+                    "example": {
+                      "sku": "A1",
+                      "qty": 0
+                    }
+                  },
+                  "options": {
+                    "type": "object",
+                    "description": "驱动选项（projection、sort、skip、limit、collation、hint、maxTimeMS 等）。",
+                    "example": {
+                      "returnDocument": "after"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "result": {
+                      "type": "object",
+                      "nullable": true,
+                      "description": "匹配的文档或 null"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "被服务器安全设置拒绝",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "数据库或服务器错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/findOneAndDelete": {
+      "post": {
+        "tags": [
+          "高级查询"
+        ],
+        "summary": "查找并删除单个文档",
+        "description": "返回被删除的文档，没有则返回 null。",
+        "security": [
+          {},
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "dbName",
+                  "collectionName",
+                  "query"
+                ],
+                "properties": {
+                  "mongoURI": {
+                    "type": "string",
+                    "description": "连接串。服务器设置了 DEFAULT_MONGO_URI 时可省略。",
+                    "example": "mongodb+srv://user:password@cluster.mongodb.net"
+                  },
+                  "dbName": {
+                    "type": "string",
+                    "description": "数据库名",
+                    "example": "testDB"
+                  },
+                  "collectionName": {
+                    "type": "string",
+                    "description": "集合名",
+                    "example": "testCollection"
+                  },
+                  "responseFormat": {
+                    "type": "string",
+                    "enum": [
+                      "json",
+                      "ejson"
+                    ],
+                    "description": "设为 \"ejson\" 时以 Extended JSON 返回 BSON 类型。"
+                  },
+                  "query": {
+                    "type": "object",
+                    "description": "查询条件。支持 Extended JSON（{\"$oid\": ...}）和 \"RegExp(pattern, flags)\" 字符串。",
+                    "example": {
+                      "status": "queued"
+                    }
+                  },
+                  "options": {
+                    "type": "object",
+                    "description": "驱动选项（projection、sort、skip、limit、collation、hint、maxTimeMS 等）。",
+                    "example": {
+                      "sort": {
+                        "createdAt": 1
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "result": {
+                      "type": "object",
+                      "nullable": true,
+                      "description": "匹配的文档或 null"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "被服务器安全设置拒绝",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "数据库或服务器错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bulkWrite": {
+      "post": {
+        "tags": [
+          "高级查询"
+        ],
+        "summary": "批量执行写操作",
+        "description": "每个操作是 insertOne、updateOne、updateMany、replaceOne、deleteOne、deleteMany 之一，格式与 MongoDB 驱动一致。",
+        "security": [
+          {},
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "dbName",
+                  "collectionName",
+                  "operations"
+                ],
+                "properties": {
+                  "mongoURI": {
+                    "type": "string",
+                    "description": "连接串。服务器设置了 DEFAULT_MONGO_URI 时可省略。",
+                    "example": "mongodb+srv://user:password@cluster.mongodb.net"
+                  },
+                  "dbName": {
+                    "type": "string",
+                    "description": "数据库名",
+                    "example": "testDB"
+                  },
+                  "collectionName": {
+                    "type": "string",
+                    "description": "集合名",
+                    "example": "testCollection"
+                  },
+                  "responseFormat": {
+                    "type": "string",
+                    "enum": [
+                      "json",
+                      "ejson"
+                    ],
+                    "description": "设为 \"ejson\" 时以 Extended JSON 返回 BSON 类型。"
+                  },
+                  "operations": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    },
+                    "description": "写操作列表",
+                    "example": [
+                      {
+                        "insertOne": {
+                          "document": {
+                            "sku": "A1",
+                            "qty": 5
+                          }
+                        }
+                      },
+                      {
+                        "updateOne": {
+                          "filter": {
+                            "sku": "B2"
+                          },
+                          "update": {
+                            "$inc": {
+                              "qty": -1
+                            }
+                          },
+                          "upsert": true
+                        }
+                      },
+                      {
+                        "deleteMany": {
+                          "filter": {
+                            "qty": 0
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "options": {
+                    "type": "object",
+                    "description": "驱动选项（projection、sort、skip、limit、collation、hint、maxTimeMS 等）。",
+                    "example": {
+                      "ordered": false
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "insertedCount": {
+                      "type": "integer"
+                    },
+                    "matchedCount": {
+                      "type": "integer"
+                    },
+                    "modifiedCount": {
+                      "type": "integer"
+                    },
+                    "deletedCount": {
+                      "type": "integer"
+                    },
+                    "upsertedCount": {
+                      "type": "integer"
+                    },
+                    "insertedIds": {
+                      "type": "object"
+                    },
+                    "upsertedIds": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "被服务器安全设置拒绝",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "数据库或服务器错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "integer"
+                    },
+                    "codeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/insert": {
       "post": {
         "tags": [
@@ -706,7 +2550,7 @@
                     "description": "查询过滤器（必须为非空对象）",
                     "minProperties": 1,
                     "example": {
-                      "_id": "123"
+                      "_id": { "$oid": "507f1f77bcf86cd799439011" }
                     }
                   },
                   "update": {
@@ -825,7 +2669,7 @@
                     "type": "object",
                     "description": "查询过滤器",
                     "example": {
-                      "_id": "123"
+                      "_id": { "$oid": "507f1f77bcf86cd799439011" }
                     }
                   },
                   "multi": {
@@ -1054,6 +2898,15 @@
             "description": "服务器错误"
           }
         }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Api-Key"
       }
     }
   }

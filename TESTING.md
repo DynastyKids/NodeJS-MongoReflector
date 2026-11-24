@@ -4,24 +4,34 @@ This document describes the testing setup and CI/CD workflows for MongoDB Reflec
 
 ## Local Testing
 
-### Run Smoke Tests
+### Run Tests
 
-Start the server in one terminal:
+The tests start the server themselves; you do not need `npm start` first.
 
 ```bash
-npm start
+npm test                 # all test files
+npm run test:smoke       # server starts, docs and error format (no database needed)
+npm run test:unit        # query parsing and connection-string checks (no database needed)
 ```
 
-In another terminal, run the tests:
+Compatibility and feature tests need a MongoDB to connect to. Without `MONGO_TEST_URI` they are skipped.
 
 ```bash
-npm test
+docker run -d --name mongoreflector-test -p 127.0.0.1:27999:27017 mongo:7.0
+MONGO_TEST_URI=mongodb://127.0.0.1:27999 npm test
 ```
 
-Or specifically:
+| File | What it checks |
+|------|----------------|
+| `test/smoke.test.js` | Server starts, docs load, errors are JSON |
+| `test/unit.test.js` | Extended JSON / RegExp parsing, blocked operators, URI checks |
+| `test/compat.test.js` | Every request format from before 0.3.0 still works the same |
+| `test/features.test.js` | New endpoints, bug fixes and security settings |
+
+To run the smoke tests against a server that is already running, set `API_URL`:
 
 ```bash
-npm run test:smoke
+API_URL=http://localhost:3000 npm run test:smoke
 ```
 
 ### Manual Server Testing
